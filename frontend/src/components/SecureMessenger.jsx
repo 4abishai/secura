@@ -1,4 +1,3 @@
-// src/components/SecureMessenger.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   buildSessionWithRecipient,
@@ -14,6 +13,8 @@ const SecureMessenger = ({ currentUser, contact, onBack }) => {
   const [isSending, setIsSending] = useState(false);
   const [sessionEstablished, setSessionEstablished] = useState(false);
   const [error, setError] = useState('');
+  const [lastFetchedMessageId, setLastFetchedMessageId] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
   const messagesEndRef = useRef(null);
   const sessionRef = useRef(null);
 
@@ -30,11 +31,16 @@ const SecureMessenger = ({ currentUser, contact, onBack }) => {
 
   useEffect(() => {
     if (!currentUser || !contact) return;
-
     const chatId = getChatId(currentUser.id, contact.id);
     const savedMessages = localStorage.getItem(`messages_${chatId}`);
     if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
+      const parsed = JSON.parse(savedMessages);
+      setMessages(parsed);
+      if (parsed.length > 0) {
+        // Get the highest ID from saved messages
+        const maxId = Math.max(...parsed.map(m => parseInt(m.id)));
+        setLastFetchedMessageId(maxId.toString());
+      }
     }
   }, [currentUser?.id, contact?.id]);
 
@@ -48,60 +54,104 @@ const SecureMessenger = ({ currentUser, contact, onBack }) => {
   }, [currentUser?.id, contact?.id]);
 
   useEffect(() => {
-  const interval = setInterval(fetchIncomingMessages, 2000);
-  return () => clearInterval(interval);
-}, [currentUser?.id, contact?.id]);
+    if (!sessionEstablished) return;
+    
+    console.log('Starting message polling for user:', currentUser.id);
+    const interval = setInterval(fetchIncomingMessages, 2000);
+    return () => {
+      console.log('Stopping message polling for user:', currentUser.id);
+      clearInterval(interval);
+    };
+  }, [currentUser?.id, contact?.id, sessionEstablished, lastFetchedMessageId]);
 
-const fetchIncomingMessages = async () => {
-  try {
-    const allMessages = mockServer.getMessages(currentUser.id, contact.id);
-    const unseenMessages = allMessages.filter(m => m.recipientId === currentUser.id);
-    const currentChatId = getChatId(currentUser.id, contact.id);
-
-    const decrypted = [];
-    const userStore = mockServer.getUserStore(currentUser.id);
-
-    for (const msg of unseenMessages) {
-      const senderAddr = new libsignal.SignalProtocolAddress(msg.senderId, 1);
-      const ciphertext = JSON.parse(msg.encryptedMessage);
-      const decryptedBuf = await decryptMessage(userStore, senderAddr, ciphertext);
-      const text = new TextDecoder().decode(decryptedBuf);
-
-      decrypted.push({
-        ...msg,
-        content: text,
-        type: 'received'
+  const fetchIncomingMessages = async () => {
+    try {
+      
+      const allMessages = mockServer.getMessages(currentUser.id, contact.id);
+      
+      // Filter for messages where current user is the recipient AND we haven't processed them yet
+      const newIncomingMessages = allMessages.filter(m => {
+        const isForMe = m.recipientId === currentUser.id;
+        // Convert to numbers for proper comparison
+        const messageIdNum = parseInt(m.id);
+        const lastFetchedNum = lastFetchedMessageId ? parseInt(lastFetchedMessageId) : 0;
+        const isNew = messageIdNum > lastFetchedNum;
+        console.log(`Message ${m.id}: isForMe=${isForMe}, isNew=${isNew}, messageIdNum=${messageIdNum}, lastFetchedNum=${lastFetchedNum}`);
+        return isForMe && isNew;
       });
-    }
 
-    if (decrypted.length > 0) {
-      const updated = [...messages, ...decrypted];
-      setMessages(updated);
-      localStorage.setItem(`messages_${currentChatId}`, JSON.stringify(updated));
-    }
-  } catch (err) {
-    console.error('Error fetching incoming messages:', err);
-  }
-};
+      setDebugInfo(`Last check: ${new Date().toLocaleTimeString()} - Found ${newIncomingMessages.length} new messages`);
 
+      if (newIncomingMessages.length === 0) return;
+
+      const currentChatId = getChatId(currentUser.id, contact.id);
+      const decrypted = [];
+      const userStore = mockServer.getUserStore(currentUser.id);
+
+      for (const msg of newIncomingMessages) {
+        try {
+          console.log(`[${currentUser.id}] Decrypting message ${msg.id} from ${msg.senderId}`);
+          
+          const senderAddr = new libsignal.SignalProtocolAddress(msg.senderId, 1);
+          const ciphertext = JSON.parse(msg.encryptedMessage);
+          const decryptedBuf = await decryptMessage(userStore, senderAddr, ciphertext);
+          const text = new TextDecoder().decode(decryptedBuf);
+          
+          console.log(`[${currentUser.id}] Successfully decrypted: "${text}"`);
+          
+          decrypted.push({
+            id: msg.id,
+            senderId: msg.senderId,
+            recipientId: msg.recipientId,
+            content: text,
+            timestamp: msg.timestamp,
+            type: 'received'
+          });
+        } catch (decryptError) {
+          console.error(`[${currentUser.id}] Error decrypting message ${msg.id}:`, decryptError);
+        }
+      }
+
+      if (decrypted.length > 0) {
+        console.log(`[${currentUser.id}] Adding ${decrypted.length} decrypted messages to UI`);
+        
+        setMessages(prev => {
+          const updated = [...prev, ...decrypted];
+          localStorage.setItem(`messages_${currentChatId}`, JSON.stringify(updated));
+          console.log(`[${currentUser.id}] Updated messages array:`, updated);
+          return updated;
+        });
+        
+        // Update the last fetched message ID
+        const newLastId = parseInt(decrypted[decrypted.length - 1].id);
+        setLastFetchedMessageId(newLastId.toString());
+        console.log(`[${currentUser.id}] Updated lastFetchedMessageId to:`, newLastId);
+      }
+    } catch (err) {
+      console.error(`[${currentUser.id}] Error fetching incoming messages:`, err);
+      setDebugInfo(`Error: ${err.message}`);
+    }
+  };
 
   const establishSession = async () => {
     try {
+      console.log(`[${currentUser.id}] Establishing session with ${contact.id}`);
+      
       const contactBundle = mockServer.getUserBundle(contact.id);
       const currentUserStore = mockServer.getUserStore(currentUser.id);
-
       const address = await buildSessionWithRecipient(
         contact.id,
         contactBundle,
         currentUserStore
       );
-
       sessionRef.current = address;
       setSessionEstablished(true);
       setError('');
+      
+      console.log(`[${currentUser.id}] Session established successfully`);
     } catch (err) {
       setError('Failed to establish secure session');
-      console.error('Session establishment error:', err);
+      console.error(`[${currentUser.id}] Session establishment error:`, err);
     }
   };
 
@@ -114,32 +164,50 @@ const fetchIncomingMessages = async () => {
     setError('');
 
     try {
+      console.log(`[${currentUser.id}] Sending message to ${contact.id}: "${newMessage}"`);
+      
       const currentUserStore = mockServer.getUserStore(currentUser.id);
-
       const ciphertext = await encryptMessage(
         currentUserStore,
         sessionRef.current,
         newMessage
       );
 
-      const message = {
-        id: Date.now().toString(),
+      // Store the encrypted message on the server so the recipient can fetch it
+      const serverMessage = mockServer.storeMessage(
+        currentUser.id,
+        contact.id,
+        JSON.stringify(ciphertext)
+      );
+      
+      console.log(`[${currentUser.id}] Message stored on server with ID:`, serverMessage.id);
+
+      // Create the local message for immediate display
+      const localMessage = {
+        id: serverMessage.id,
         senderId: currentUser.id,
         recipientId: contact.id,
         content: newMessage,
-        encrypted: JSON.stringify(ciphertext),
-        timestamp: new Date().toISOString(),
+        timestamp: serverMessage.timestamp,
         type: 'sent'
       };
 
-      const updatedMessages = [...messages, message];
+      const updatedMessages = [...messages, localMessage];
       saveMessages(updatedMessages);
-
-
+      
+      // Update last fetched message ID to include our own sent message
+      setLastFetchedMessageId(serverMessage.id);
+      
       setNewMessage('');
+      console.log(`[${currentUser.id}] Message sent successfully`);
+      
+      // Debug: Check what's in the server after sending
+      const allMessagesAfterSend = mockServer.getMessages(currentUser.id, contact.id);
+      console.log(`[${currentUser.id}] All messages in server after send:`, allMessagesAfterSend);
+      
     } catch (err) {
       setError('Failed to send message');
-      console.error('Send message error:', err);
+      console.error(`[${currentUser.id}] Send message error:`, err);
     } finally {
       setIsSending(false);
     }
@@ -182,7 +250,6 @@ const fetchIncomingMessages = async () => {
             <p className="text-sm text-gray-600">{contact.phoneNumber}</p>
           </div>
         </div>
-
         <div className="text-sm">
           {sessionEstablished ? (
             <span className="text-green-600">Secure</span>
@@ -190,6 +257,13 @@ const fetchIncomingMessages = async () => {
             <span className="text-yellow-600">Connecting...</span>
           )}
         </div>
+      </div>
+
+      {/* Debug Info Panel */}
+      <div className="bg-gray-100 p-2 text-xs text-gray-600 border-b">
+        <div>User: {currentUser.id} | Contact: {contact.id} | Session: {sessionEstablished ? 'Yes' : 'No'}</div>
+        <div>Last Fetched ID: {lastFetchedMessageId || 'None'}</div>
+        <div>{debugInfo}</div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -228,12 +302,11 @@ const fetchIncomingMessages = async () => {
               <p className={`text-xs mt-1 ${
                 message.senderId === currentUser.id ? 'text-blue-100' : 'text-gray-500'
               }`}>
-                {formatTime(message.timestamp)}
+                {formatTime(message.timestamp)} - ID: {message.id}
               </p>
             </div>
           </div>
         ))}
-
         <div ref={messagesEndRef} />
       </div>
 
@@ -256,7 +329,6 @@ const fetchIncomingMessages = async () => {
             {isSending ? '...' : 'Send'}
           </button>
         </div>
-
         <p className="text-xs text-gray-500 mt-2">
           Messages are encrypted with Signal protocol end-to-end encryption
         </p>

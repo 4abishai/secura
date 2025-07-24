@@ -27,28 +27,51 @@ class MockServer {
   }
 
   // Message handling
-  storeMessage(senderId, recipientId, encryptedMessage) {
-    const chatId = this.getChatId(senderId, recipientId);
-    if (!this.messages[chatId]) {
-      this.messages[chatId] = [];
-    }
-    
-    const message = {
-      id: Date.now().toString(),
-      senderId,
-      recipientId,
-      encryptedMessage,
-      timestamp: new Date().toISOString()
-    };
-    
-    this.messages[chatId].push(message);
-    return message;
-  }
+storeMessage(senderId, recipientId, encryptedMessage) {
+  const chatId = this.getChatId(senderId, recipientId);
+  const message = {
+    id: Date.now().toString(),
+    senderId,
+    recipientId,
+    encryptedMessage,
+    timestamp: new Date().toISOString()
+  };
 
-  getMessages(user1Id, user2Id) {
-    const chatId = this.getChatId(user1Id, user2Id);
-    return this.messages[chatId] || [];
-  }
+  // Get current messages from localStorage
+  const stored = JSON.parse(localStorage.getItem(`chat_${chatId}`)) || [];
+  stored.push(message);
+
+  localStorage.setItem(`chat_${chatId}`, JSON.stringify(stored));
+  return message;
+}
+
+getMessages(user1Id, user2Id) {
+  const chatId = this.getChatId(user1Id, user2Id);
+  return JSON.parse(localStorage.getItem(`chat_${chatId}`)) || [];
+}
+
+  // storeMessage(senderId, recipientId, encryptedMessage) {
+  //   const chatId = this.getChatId(senderId, recipientId);
+  //   if (!this.messages[chatId]) {
+  //     this.messages[chatId] = [];
+  //   }
+    
+  //   const message = {
+  //     id: Date.now().toString(),
+  //     senderId,
+  //     recipientId,
+  //     encryptedMessage,
+  //     timestamp: new Date().toISOString()
+  //   };
+    
+  //   this.messages[chatId].push(message);
+  //   return message;
+  // }
+
+  // getMessages(user1Id, user2Id) {
+  //   const chatId = this.getChatId(user1Id, user2Id);
+  //   return this.messages[chatId] || [];
+  // }
 
   getChatId(user1, user2) {
     return [user1, user2].sort().join('_');

@@ -28,31 +28,37 @@ export async function generatePreKeys(store) {
       throw new Error('Identity key pair not found. Generate identity first.');
     }
 
-    // Generate signed pre-key
+    // Generate signed pre-key with ID 1
     const signedPreKey = await libsignal.KeyHelper.generateSignedPreKey(identityKeyPair, 1);
-    
-    // Generate multiple one-time pre-keys
+
+    // Generate pre-key with ID 0 explicitly
+    const preKeyZero = await libsignal.KeyHelper.generatePreKey(0);
+
+    // Generate multiple one-time pre-keys starting from ID 2
     const oneTimePreKeys = await Promise.all(
       Array.from({ length: 100 }, (_, i) => 
         libsignal.KeyHelper.generatePreKey(i + 2)
       )
     );
 
-    // Store the complete signed prekey (with private key) in the store
+    // Store pre-key 0
+    store.storePreKey(preKeyZero.keyId, preKeyZero.keyPair);
+
+    // Store signed pre-key
     store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
-    
-    // Store one-time prekeys in the store
+
+    // Store one-time pre-keys
     oneTimePreKeys.forEach(preKey => {
       store.storePreKey(preKey.keyId, preKey.keyPair);
     });
 
-    // Keep references for bundle export
+    // Save for reference
     store.put('signedPreKey', signedPreKey);
-    store.put('oneTimePreKeys', oneTimePreKeys);
+    store.put('oneTimePreKeys', [preKeyZero, ...oneTimePreKeys]);
 
-    console.log(`Generated ${oneTimePreKeys.length} one-time prekeys and 1 signed prekey`);
+    console.log(`Generated preKey 0, ${oneTimePreKeys.length} one-time prekeys, and 1 signed prekey`);
     
-    return { signedPreKey, oneTimePreKeys };
+    return { signedPreKey, oneTimePreKeys: [preKeyZero, ...oneTimePreKeys] };
   } catch (error) {
     console.error('Failed to generate pre-keys:', error);
     throw error;

@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import UserRegistration from './components/UserRegistration';
 import ContactManager from './components/ContactManager';
 import SecureMessenger from './components/SecureMessenger';

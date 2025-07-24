@@ -1,5 +1,5 @@
 // src/components/UserRegistration.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { generateIdentity, generatePreKeys, exportBundle } from '../crypto/cryptoUtils';
 import { createSignalProtocolStore } from '../crypto/sessionUtils';
 import { mockServer } from '../mock/mockServer';

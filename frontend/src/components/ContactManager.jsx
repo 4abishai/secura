@@ -23,19 +23,9 @@ const ContactManager = ({ currentUser, onContactSelected, onLogout }) => {
     localStorage.setItem(`contacts_${currentUser.id}`, JSON.stringify(updatedContacts));
   };
 
-  const validatePhoneNumber = (phone) => {
-    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-    return phoneRegex.test(phone.replace(/\s/g, ''));
-  };
-
   const handleAddContact = async () => {
     if (!newContactPhone.trim()) {
       setError('Please enter a phone number');
-      return;
-    }
-
-    if (!validatePhoneNumber(newContactPhone)) {
-      setError('Please enter a valid phone number');
       return;
     }
 

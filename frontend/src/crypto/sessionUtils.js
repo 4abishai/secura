@@ -18,6 +18,7 @@ export async function buildSessionWithRecipient(recipientId, bundle, signalStore
         publicKey: base64ToArrayBuffer(bundle.signedPreKey.publicKey),
         signature: base64ToArrayBuffer(bundle.signedPreKey.signature),
       },
+      // oneTimePreKey: null
       oneTimePreKey: bundle.oneTimePreKeys.length > 0 ? {
         keyId: bundle.oneTimePreKeys[0].keyId,
         publicKey: base64ToArrayBuffer(bundle.oneTimePreKeys[0].publicKey),
@@ -38,10 +39,16 @@ export async function encryptMessage(store, recipientAddress, plaintext) {
   try {
     console.log(`Encrypting message for ${recipientAddress.getName()}`);
     
-    const cipher = new libsignal.SessionCipher(store, recipientAddress);
+    // Encode plaintext to binary format
     const encoder = new TextEncoder();
     const buffer = encoder.encode(plaintext);
     
+    /*
+    Encrypt the message (using the session)
+    Internally, the library determines whether to use a regular session message or a PreKey message
+    SessionCipher retrieves the session state from store for recipient
+    */
+    const cipher = new libsignal.SessionCipher(store, recipientAddress);
     const ciphertext = await cipher.encrypt(buffer.buffer);
     console.log('Message encrypted successfully');
     
@@ -56,6 +63,10 @@ export async function decryptMessage(store, senderAddress, ciphertext) {
   try {
     console.log(`Decrypting message from ${senderAddress.getName()}`);
     
+    /*
+    Encrypt the message (using the session)
+    SessionCipher retrieves the session state from store for sender
+    */
     const cipher = new libsignal.SessionCipher(store, senderAddress);
     
     let decryptedBuffer;
@@ -79,19 +90,25 @@ export function createSignalProtocolStore() {
   const store = {};
   
   const signalStore = {
+    // ========================
     // Basic storage operations
+    // ========================
     get: (key) => store[key],
     put: (key, value) => { store[key] = value; },
     remove: (key) => { delete store[key]; },
 
-    // Identity key operations
+    // =============================
+    // Local Identity key operations
+    // =============================
     getIdentityKeyPair: () => store['identityKey'],
     loadIdentityKey: () => store['identityKey'],
     
-    // Identity validation
-    isTrustedIdentity: (identifier, identityKey, direction) => {
+    // ==============================
+    // Remote Identity key operations
+    // ==============================
+    isTrustedIdentity: (identifier, identityKey, direction) => { // Identity validation
       console.log(`Checking trust for identity: ${identifier}`);
-      // In a real app, you'd implement proper identity validation
+      // In a real app proper identity validation would be done
       // For demo purposes, we trust all identities
       return Promise.resolve(true);
     },
@@ -139,8 +156,9 @@ export function createSignalProtocolStore() {
       delete store[`preKey_${keyId}`];
       return Promise.resolve();
     },
-
+    // ========================
     // Signed PreKey operations
+    // ========================
     storeSignedPreKey: (keyId, keyPair) => {
       console.log(`Storing signed prekey: ${keyId}`);
       store[`signedPreKey_${keyId}`] = keyPair;
@@ -162,7 +180,10 @@ export function createSignalProtocolStore() {
       return Promise.resolve();
     },
 
-    // Session operations
+    // ==================
+    // Session operations (session being shared cryptographic state with a user (via Double Ratchet))
+    // ==================
+
     storeSession: (identifier, record) => {
       console.log(`Storing session: ${identifier}`);
       store[`session_${identifier}`] = record;
@@ -186,7 +207,9 @@ export function createSignalProtocolStore() {
       return Promise.resolve();
     },
 
+    // ===============
     // Registration ID
+    // ===============
     getLocalRegistrationId: () => {
       return Promise.resolve(store['registrationId']);
     },
