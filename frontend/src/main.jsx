@@ -1,10 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
+import ECDHExample from './components/ECDHExample.jsx'
+import SecureChatApp from './components/SecureChatApp.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    {/* <ECDHExample /> */}
+    <SecureChatApp />
   </StrictMode>,
 )
