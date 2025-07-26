@@ -16,16 +16,12 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 public class User {
     @Id
-    private String id;
+    private String username;
 
-    @Column(unique = true)
-    private String phoneNumber;
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String publicKey;
 
-    @Lob
-    @Column(columnDefinition = "TEXT")
-    private String keyBundle; // JSON string containing the Signal protocol bundle
+    private Boolean online;
 
-    @Column(name = "registered_at")
-    private LocalDateTime registeredAt;
-
+    private Long lastSeen;
 }
