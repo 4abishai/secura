@@ -27,6 +27,12 @@ public class Controller {
         if (userRepository.existsById(user.getUsername())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists");
         }
+
+        if (user.getPassword().length() > 72) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Password cannot be more than 72 characters");
+        }
+
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setOnline(true);
         user.setLastSeen(System.currentTimeMillis());
         return ResponseEntity.ok(userRepository.save(user));
@@ -39,33 +45,25 @@ public class Controller {
         String publicKey = loginRequest.get("publicKey");
         Boolean forceLogin = Boolean.parseBoolean(loginRequest.getOrDefault("forceLogin", "false"));
 
-        // Validate input
         if (username == null || password == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Username and password are required");
         }
 
-        // Check if user exists and password matches
         return userRepository.findById(username).map(user -> {
-            if (!user.getPassword().equals(password)) {
+            if (!passwordEncoder.matches(password, user.getPassword())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid password");
             }
 
-            // Login successful - update user status
             user.setOnline(true);
             user.setLastSeen(System.currentTimeMillis());
 
-            String keyToHash;
+            // Store public key as-is if provided
             if (publicKey != null && !publicKey.isEmpty()) {
-                keyToHash = publicKey;
-            }else {
-                keyToHash = "key_" + username + "_" + System.currentTimeMillis();
+                user.setPublicKey(publicKey);
             }
 
-            // Hash the public key using BCrypt
-            String hashedPublicKey = passwordEncoder.encode(keyToHash);
-            user.setPublicKey(hashedPublicKey);
-
             userRepository.save(user);
+
             String message = forceLogin ? "Forced login successful" : "Login successful";
             return ResponseEntity.ok(Map.of(
                     "message", message,
@@ -74,6 +72,7 @@ public class Controller {
             ));
         }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found"));
     }
+
 
     @GetMapping("/users")
     public List<User> getUsers() {

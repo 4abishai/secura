@@ -23,7 +23,7 @@ public class AuthenticationService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
 
-    /**
+    /*.encode*
      * Simple authentication - just check username and password
      */
     public LoginResponse authenticateUser(String username, String password) {
