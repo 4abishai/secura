@@ -1,6 +1,0 @@
-.idea/
-.vscode/
-backend/.env
-backend/.gradle/
-backend/build/
-!backend/gradle/wrapper/gradle-wrapper.jar
