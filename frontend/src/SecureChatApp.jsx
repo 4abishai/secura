@@ -218,6 +218,7 @@ const handleRegisterUser = async () => {
         <MessageList 
           messages={messages}
           currentUsername={username}
+          selectedUser={selectedUser}
           onRefresh={handleFetchMessages}
         />
       </div>
