@@ -18,10 +18,13 @@ public class User {
     @Id
     private String username;
 
+    private String password;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String publicKey;
 
     private Boolean online;
 
     private Long lastSeen;
+
 }
