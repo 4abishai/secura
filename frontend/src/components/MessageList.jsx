@@ -48,7 +48,7 @@ const MessageList = ({ messages, currentUsername, selectedUser, onRefresh }) => 
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                             }}
                         >
-                            <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#555', marginBottom: 4, width: '100%', gap: 10, whiteSpace: 'nowrap' }}>
                                 {m.sender === currentUsername ? 'You' : m.sender}
                                 <span style={{ float: 'right' }}>
                   {new Date(m.timestamp).toLocaleTimeString()}
