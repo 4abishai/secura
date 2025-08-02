@@ -88,7 +88,7 @@ public class Controller {
 
     @GetMapping("/messages")
     public List<Message> getMessages(@RequestParam String user) {
-        return messageRepository.findByRecipient(user);
+        return messageRepository.findAllMessagesForUser(user);
     }
 
     @PostMapping("/presence")
