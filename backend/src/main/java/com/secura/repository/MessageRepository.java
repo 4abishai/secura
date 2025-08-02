@@ -11,4 +11,8 @@ import java.util.List;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByRecipient(String recipient);
+
+    @Query("SELECT m FROM Message m WHERE m.sender = :user OR m.recipient = :user ORDER BY m.timestamp ASC")
+    List<Message> findAllMessagesForUser(@Param("user") String user);
+
 }
