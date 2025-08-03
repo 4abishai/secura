@@ -1,127 +1,76 @@
-export const exportKeyBytes = async (key) => {
-  const raw = await window.crypto.subtle.exportKey('raw', key);
-  return Array.from(new Uint8Array(raw)).map(b => b.toString(16).padStart(2, '0')).join('');
-};
+// src/utils/crypto.js
+import indexedDBService from '../services/IndexedDB.js';
 
-export const generateOrLoadKeyPair = async () => {
-  // Check if we already have keys stored
-  const storedPrivateKey = JSON.parse(localStorage.getItem('privateKey') || 'null');
-  const storedPublicKey = localStorage.getItem('publicKey');
+export function arrayBufferToBase64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+export function base64ToArrayBuffer(base64) {
+  const bin = atob(base64), len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
 
-  if (storedPrivateKey && storedPublicKey) {
-    try {
-      const privKey = await window.crypto.subtle.importKey(
-        'jwk',
-        storedPrivateKey,
+export async function generateOrLoadKeyPair(username = null) {
+  // Try IndexedDB
+  if (username) {
+    const rec = await indexedDBService.getUserCredentials(username);
+    if (rec) {
+      const priv = await crypto.subtle.importKey(
+        'jwk', rec.privateKey,
         { name: 'ECDH', namedCurve: 'P-256' },
         true,
-        ['deriveKey', 'deriveBits']
+        ['deriveKey','deriveBits']
       );
-      return { privateKey: privKey, publicKey: storedPublicKey };
-    } catch (error) {
-      console.error('Failed to import stored keys, generating new ones:', error);
-      // Clear invalid stored keys
-      localStorage.removeItem('privateKey');
-      localStorage.removeItem('publicKey');
+      return { privateKey: priv, publicKey: rec.publicKey };
     }
   }
-
-  // Generate new keypair
-  const keyPair = await window.crypto.subtle.generateKey(
-    {
-      name: 'ECDH',
-      namedCurve: 'P-256'
-    },
+  // Fallback / generation
+  const kp = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
     true,
-    ['deriveKey', 'deriveBits']
+    ['deriveKey','deriveBits']
   );
+  const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+  const rawPub = await crypto.subtle.exportKey('raw', kp.publicKey);
+  const pubB64 = arrayBufferToBase64(rawPub);
 
-  const exportedPriv = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
-  const exportedPub = await window.crypto.subtle.exportKey('raw', keyPair.publicKey);
-  const pubKeyBase64 = arrayBufferToBase64(exportedPub);
+  if (username) {
+    await indexedDBService.storeUserCredentials(username, pubB64, privJwk);
+  }
+  return { privateKey: kp.privateKey, publicKey: pubB64 };
+}
 
-  localStorage.setItem('privateKey', JSON.stringify(exportedPriv));
-  localStorage.setItem('publicKey', pubKeyBase64);
-
-  return { privateKey: keyPair.privateKey, publicKey: pubKeyBase64 };
-};
-
-export const importPublicKey = async (base64) => {
-  const binary = atob(base64);
-  const bytes = new Uint8Array([...binary].map(c => c.charCodeAt(0)));
-  return await window.crypto.subtle.importKey(
+export async function importPublicKey(b64) {
+  return crypto.subtle.importKey(
     'raw',
-    bytes,
+    new Uint8Array(base64ToArrayBuffer(b64)),
     { name: 'ECDH', namedCurve: 'P-256' },
     true,
     []
   );
-};
+}
 
-export const deriveAESKey = async (privKey, pubKey) => {
-  return await window.crypto.subtle.deriveKey(
-    {
-      name: 'ECDH',
-      public: pubKey
-    },
-    privKey,
+export async function deriveAESKey(priv, pub) {
+  return crypto.subtle.deriveKey(
+    { name: 'ECDH', public: pub },
+    priv,
     { name: 'AES-GCM', length: 256 },
     true,
-    ['encrypt', 'decrypt']
+    ['encrypt','decrypt']
   );
-};
-
-export function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
 }
 
-export function base64ToArrayBuffer(base64) {
-  const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
+export async function encryptMessage(aesKey, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(text);
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, aesKey, data);
+  return arrayBufferToBase64(new Uint8Array([...iv, ...new Uint8Array(ct)]));
 }
 
-export const encryptMessage = async (aesKey, text) => {
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(text);
-  const ciphertext = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    aesKey,
-    encoded
-  );
-
-  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
-  combined.set(iv);
-  combined.set(new Uint8Array(ciphertext), iv.length);
-
-  return arrayBufferToBase64(combined);
-};
-
-export const decryptMessage = async (aesKey, base64) => {
-  try {
-    const combined = new Uint8Array(base64ToArrayBuffer(base64));
-    const iv = combined.slice(0, 12);
-    const ciphertext = combined.slice(12);
-
-    const decrypted = await window.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      aesKey,
-      ciphertext
-    );
-    const msg = new TextDecoder().decode(decrypted)
-    console.log('Decrypted message:', msg);
-    return new TextDecoder().decode(decrypted);
-  } catch (err) {
-    console.error('Decryption failed:', err.message, base64);
-    return '[Decryption Failed]';
-  }
-};
+export async function decryptMessage(aesKey, b64) {
+  const combined = new Uint8Array(base64ToArrayBuffer(b64));
+  const iv = combined.slice(0,12), ct = combined.slice(12);
+  const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, aesKey, ct);
+  return new TextDecoder().decode(pt);
+}

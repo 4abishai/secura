@@ -1,229 +1,121 @@
+// src/SecureChatApp.jsx
 import React, { useEffect, useState } from 'react';
-import { 
-  generateOrLoadKeyPair, 
-  importPublicKey, 
-  deriveAESKey, 
-  encryptMessage, 
-  decryptMessage, 
-  exportKeyBytes 
+import indexedDBService from './services/IndexedDB';
+import {
+  generateOrLoadKeyPair,
+  importPublicKey,
+  deriveAESKey,
+  encryptMessage,
+  decryptMessage
 } from './utils/crypto';
 import { registerUser, loginUser, fetchUsers, sendMessage, fetchMessages } from './services/api';
 import Registration from './components/Registration';
 import UserList from './components/UserList';
-import MessageInput from './components/MessageInput';
 import MessageList from './components/MessageList';
+import MessageInput from './components/MessageInput';
 
-const SecureChatApp = () => {
+export default function SecureChatApp() {
+  const [dbReady, setDbReady] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
-  const [inputUsername, setInputUsername] = useState('');
-  const [inputPassword, setInputPassword] = useState('');
+  const [password, setPassword] = useState('');
   const [privateKey, setPrivateKey] = useState(null);
-  const [publicKeyBase64, setPublicKeyBase64] = useState('');
+  const [publicKey, setPublicKey] = useState('');
   const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState('');
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
-  const [polling, setPolling] = useState(null);
-  const [isLogin, setIsLogin] = useState(false);
+  const [poller, setPoller] = useState(null);
 
-const handleRegisterUser = async () => {
-  if (!inputUsername.trim()) {
-    alert('Please enter a username');
-    return;
-  }
-
-  if (!inputPassword.trim()) {
-    alert('Please enter password');
-    return;
-  }
-
-  try {
-    const { privateKey: privKey, publicKey: pubKey } = await generateOrLoadKeyPair();
-
-    if (!isLogin) {
-      await registerUser(inputUsername, pubKey, inputPassword);
-    } else {
-      await loginUser(inputUsername, pubKey, inputPassword);
-    }
-
-    localStorage.setItem('username', inputUsername);
-    setUsername(inputUsername);
-    setPrivateKey(privKey);
-    setPublicKeyBase64(pubKey);
-
-    await handleFetchUsers();
-    startPolling();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    alert(`${isLogin ? 'Login' : 'Registration'} failed: ${error.message}`);
-  }
-};
-
-
-  const handleFetchUsers = async () => {
-    try {
-      const data = await fetchUsers();
-      setUsers(data.filter(u => u.username !== username));
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!message.trim() || !selectedUser) return;
-
-    try {
-      const recipient = users.find(u => u.username === selectedUser);
-      if (!recipient) {
-        alert('Recipient not found');
-        return;
-      }
-
-      const recipientPubKey = await importPublicKey(recipient.publicKey);
-      const aesKey = await deriveAESKey(privateKey, recipientPubKey);
-
-      const keyHex = await exportKeyBytes(aesKey);
-      console.log(`[${username}] Shared key with ${selectedUser}: ${keyHex}`);
-
-      const encrypted = await encryptMessage(aesKey, message);
-      
-      await sendMessage({
-        sender: username,
-        recipient: selectedUser,
-        content: encrypted,
-        timestamp: new Date().toISOString()
-      });
-
-      setMessage('');
-      await handleFetchMessages();
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      alert('Failed to send message');
-    }
-  };
-
-  const handleFetchMessages = async () => {
-    if (!username || !privateKey) return;
-
-    try {
-      const data = await fetchMessages(username);
-      console.log('Fetched messages:', data);
-
-      const allUsers = await fetchUsers();
-      const userMap = {};
-      allUsers.forEach(user => {
-        userMap[user.username] = user;
-      });
-
-      const decrypted = await Promise.all(
-        data.map(async (msg) => {
-          try {
-            const otherUsername = msg.sender === username ? msg.recipient : msg.sender;
-            const otherUser = userMap[otherUsername];
-            
-            if (!otherUser) {
-              console.warn(`Could not find user: ${otherUsername}`);
-              return { ...msg, decrypted: `[Unknown user: ${otherUsername}]` };
-            }
-
-            const otherUserPubKey = await importPublicKey(otherUser.publicKey);
-            const aesKey = await deriveAESKey(privateKey, otherUserPubKey);
-
-            const keyHex = await exportKeyBytes(aesKey);
-            console.log(`[${username}] Shared key with ${otherUsername}: ${keyHex}`);
-
-            const decryptedText = await decryptMessage(aesKey, msg.content);
-            return { ...msg, decrypted: decryptedText };
-          } catch (error) {
-            console.error('Failed to decrypt message:', error, msg);
-            return { ...msg, decrypted: '[Decryption Failed]' };
-          }
-        })
-      );
-
-      console.log('All decrypted messages:', decrypted);
-      setMessages(decrypted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
-    }
-  };
-
-  const startPolling = () => {
-    if (polling) clearInterval(polling);
-    const id = setInterval(handleFetchMessages, 3000);
-    setPolling(id);
-  };
-
+  // Init IndexedDB & session
   useEffect(() => {
-    const storedUsername = localStorage.getItem('username');
-    if (storedUsername) {
-      setUsername(storedUsername);
-      (async () => {
-        try {
-          const { privateKey: privKey, publicKey: pubKey } = await generateOrLoadKeyPair();
-          setPrivateKey(privKey);
-          setPublicKeyBase64(pubKey);
-          await handleFetchUsers();
-          startPolling();
-        } catch (error) {
-          console.error('Failed to initialize:', error);
-        }
-      })();
-    }
+    (async()=> {
+      await indexedDBService.initDB();
+      setDbReady(true);
+      // restore session if exists
+      const all = await indexedDBService.getAllUsers();
+      if (all.length) {
+        const last = all.reduce((a,b)=> new Date(a.lastAccessed)>new Date(b.lastAccessed)?a:b);
+        await restoreSession(last.username);
+      }
+      setLoading(false);
+    })();
+    return ()=> indexedDBService.closeDB();
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (polling) clearInterval(polling);
-    };
-  }, [polling]);
-
-  if (!username) {
-  return (
-    <Registration 
-      inputUsername={inputUsername}
-      inputPassword={inputPassword}
-      onUsernameChange={setInputUsername}
-      onPasswordChange={setInputPassword}
-      onRegister={handleRegisterUser}
-      isLogin={isLogin}
-      onToggleMode={() => setIsLogin(!isLogin)}
-    />
-  );
+  async function restoreSession(user) {
+    const { privateKey, publicKey } = await generateOrLoadKeyPair(user);
+    setUsername(user);
+    setPrivateKey(privateKey);
+    setPublicKey(publicKey);
+    await loadUsers(user);
+    startPolling(user, privateKey);
   }
 
+  async function handleAuth(isLogin) {
+    if (!username||!password) return alert('Enter creds');
+    const { privateKey, publicKey } = await generateOrLoadKeyPair(username);
+    if (isLogin) await loginUser(username, publicKey, password);
+    else await registerUser(username, publicKey, password);
+    await loadUsers(username);
+    startPolling(username, privateKey);
+  }
+
+  async function loadUsers(me) {
+    const list = await fetchUsers();
+    setUsers(list.filter(u=>u.username!==me));
+  }
+
+  function startPolling(me, priv) {
+    if (poller) clearInterval(poller);
+    const id = setInterval(()=>fetchAndDecrypt(me, priv),3000);
+    setPoller(id);
+  }
+
+  async function fetchAndDecrypt(me, priv) {
+    const data = await fetchMessages(me);
+    const all = await fetchUsers();
+    const map = Object.fromEntries(all.map(u=>[u.username,u]));
+    const dec = await Promise.all(data.map(async m => {
+      const other = m.sender===me?m.recipient:m.sender;
+      const pub = await importPublicKey(map[other].publicKey);
+      const key = await deriveAESKey(priv, pub);
+      return { ...m, text: await decryptMessage(key,m.content) };
+    }));
+    setMessages(dec.sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp)));
+  }
+
+  async function handleSend() {
+    if (!message||!selectedUser) return;
+    const recPub = await importPublicKey(users.find(u=>u.username===selectedUser).publicKey);
+    const aes = await deriveAESKey(privateKey, recPub);
+    const ct = await encryptMessage(aes, message);
+    await sendMessage({ sender:username, recipient:selectedUser, content:ct, timestamp:new Date().toISOString() });
+    setMessage('');
+    fetchAndDecrypt(username, privateKey);
+  }
+
+  if (loading) return <div>Initializing...</div>;
+  if (!username) {
+    return (
+      <Registration
+        username={username} setUsername={setUsername}
+        password={password} setPassword={setPassword}
+        onRegister={()=>handleAuth(false)}
+        onLogin={()=>handleAuth(true)}
+      />
+    );
+  }
   return (
-    <div style={{ padding: 20, fontFamily: 'Arial', maxWidth: 800 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2>Welcome, {username}</h2>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
-        <div>
-          <UserList 
-            users={users}
-            selectedUser={selectedUser}
-            onUserSelect={setSelectedUser}
-            onRefresh={handleFetchUsers}
-          />
-
-          <MessageInput 
-            selectedUser={selectedUser}
-            message={message}
-            onMessageChange={setMessage}
-            onSendMessage={handleSendMessage}
-          />
-        </div>
-
-        <MessageList 
-          messages={messages}
-          currentUsername={username}
-          selectedUser={selectedUser}
-          onRefresh={handleFetchMessages}
-        />
-      </div>
+    <div>
+      <h2>Welcome, {username}</h2>
+      <button onClick={()=>{ clearInterval(poller);setUsername(''); }}>Logout</button>
+      <UserList users={users} selected={selectedUser} onSelect={setSelectedUser}/>
+      <MessageList messages={messages} me={username} them={selectedUser}/>
+      <MessageInput
+        message={message} setMessage={setMessage}
+        onSend={handleSend}
+      />
     </div>
   );
-};
-
-export default SecureChatApp;
+}
