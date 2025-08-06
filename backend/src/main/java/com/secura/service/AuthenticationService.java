@@ -1,8 +1,8 @@
-package com.secura.Service;
+package com.secura.service;
 
 import com.secura.entity.User;
 import com.secura.repository.UserRepository;
-import com.secura.DTO.LoginResponse;
+import com.secura.dto.LoginResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;

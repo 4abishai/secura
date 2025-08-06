@@ -1,201 +1,221 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  generateOrLoadKeyPair, 
-  importPublicKey, 
-  deriveAESKey, 
-  encryptMessage, 
-  decryptMessage, 
-  exportKeyBytes 
-} from './utils/crypto';
-import { registerUser, loginUser, fetchUsers, sendMessage, fetchMessages } from './services/api';
+import React, { useEffect } from 'react';
+import { useAuth } from './hooks/useAuth';
+import { useChat } from './hooks/useChat';
+import { useWebSocket } from './hooks/useWebSocket';
+
 import Registration from './components/Registration';
 import UserList from './components/UserList';
 import MessageInput from './components/MessageInput';
 import MessageList from './components/MessageList';
 
 const SecureChatApp = () => {
-  const [username, setUsername] = useState('');
-  const [inputUsername, setInputUsername] = useState('');
-  const [inputPassword, setInputPassword] = useState('');
-  const [privateKey, setPrivateKey] = useState(null);
-  const [publicKeyBase64, setPublicKeyBase64] = useState('');
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [polling, setPolling] = useState(null);
-  const [isLogin, setIsLogin] = useState(false);
+  // Auth hook - handles authentication, keys, and encryption
+  const {
+    username,
+    setUsername,
+    inputUsername,
+    setInputUsername,
+    inputPassword,
+    setInputPassword,
+    privateKey,
+    publicKeyBase64,
+    isLogin,
+    setIsLogin,
+    userMap,
+    keyChangeNotifications,
+    privateKeyRef,
+    usernameRef,
+    handleRegisterUser,
+    logout,
+    initializeAuth,
+    handleDecryptMessage,
+    encryptMessage,
+    updateUserInMap,
+    dismissKeyNotification
+  } = useAuth();
 
-const handleRegisterUser = async () => {
-  if (!inputUsername.trim()) {
-    alert('Please enter a username');
-    return;
-  }
+  // Chat hook - handles messages and users
+  const {
+    messages,
+    message,
+    setMessage,
+    selectedUser,
+    setSelectedUser,
+    users,
+    handleDecryptMessages,
+    handleDecryptAndAddMessage,
+    handleSendMessage,
+    handleFetchMessages,
+    handleFetchUsers,
+    updateUserPresence,
+    clearMessages,
+    clearUsers
+  } = useChat();
 
-  if (!inputPassword.trim()) {
-    alert('Please enter password');
-    return;
-  }
+  // WebSocket hook - handles connection and presence
+  const {
+    connectionStatus,
+    setConnectionStatus,
+    setupWebSocketHandlers,
+    disconnect
+  } = useWebSocket(username);
 
-  try {
-    const { privateKey: privKey, publicKey: pubKey } = await generateOrLoadKeyPair();
-
-    if (!isLogin) {
-      await registerUser(inputUsername, pubKey, inputPassword);
-    } else {
-      await loginUser(inputUsername, pubKey, inputPassword);
-    }
-
-    localStorage.setItem('username', inputUsername);
-    setUsername(inputUsername);
-    setPrivateKey(privKey);
-    setPublicKeyBase64(pubKey);
-
-    await handleFetchUsers();
-    startPolling();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    alert(`${isLogin ? 'Login' : 'Registration'} failed: ${error.message}`);
-  }
-};
-
-
-  const handleFetchUsers = async () => {
+  const onRegisterUser = async () => {
     try {
-      const data = await fetchUsers();
-      setUsers(data.filter(u => u.username !== username));
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!message.trim() || !selectedUser) return;
-
-    try {
-      const recipient = users.find(u => u.username === selectedUser);
-      if (!recipient) {
-        alert('Recipient not found');
-        return;
+      setConnectionStatus('connecting');
+      const result = await handleRegisterUser();
+      if (result.success) {
+        await handleFetchUsers(username, updateUserInMap);
       }
-
-      const recipientPubKey = await importPublicKey(recipient.publicKey);
-      const aesKey = await deriveAESKey(privateKey, recipientPubKey);
-
-      const keyHex = await exportKeyBytes(aesKey);
-      console.log(`[${username}] Shared key with ${selectedUser}: ${keyHex}`);
-
-      const encrypted = await encryptMessage(aesKey, message);
-      
-      await sendMessage({
-        sender: username,
-        recipient: selectedUser,
-        content: encrypted,
-        timestamp: new Date().toISOString()
-      });
-
-      setMessage('');
-      await handleFetchMessages();
     } catch (error) {
-      console.error('Failed to send message:', error);
-      alert('Failed to send message');
+      setConnectionStatus('disconnected');
     }
   };
 
-  const handleFetchMessages = async () => {
-    if (!username || !privateKey) return;
+  const onSendMessage = async () => {
+    await handleSendMessage(encryptMessage, usernameRef, privateKeyRef);
+  };
 
+  const onFetchMessages = async () => {
+    await handleFetchMessages(usernameRef, privateKeyRef);
+  };
+
+  const onFetchUsers = async () => {
+    await handleFetchUsers(username, updateUserInMap);
+  };
+
+  const onLogout = () => {
+    logout();
+    disconnect();
+    clearMessages();
+    clearUsers();
+    setSelectedUser(null);
+  };
+
+  const initializeApp = async (storedUsername) => {
     try {
-      const data = await fetchMessages(username);
-      console.log('Fetched messages:', data);
-
-      const allUsers = await fetchUsers();
-      const userMap = {};
-      allUsers.forEach(user => {
-        userMap[user.username] = user;
-      });
-
-      const decrypted = await Promise.all(
-        data.map(async (msg) => {
-          try {
-            const otherUsername = msg.sender === username ? msg.recipient : msg.sender;
-            const otherUser = userMap[otherUsername];
-            
-            if (!otherUser) {
-              console.warn(`Could not find user: ${otherUsername}`);
-              return { ...msg, decrypted: `[Unknown user: ${otherUsername}]` };
-            }
-
-            const otherUserPubKey = await importPublicKey(otherUser.publicKey);
-            const aesKey = await deriveAESKey(privateKey, otherUserPubKey);
-
-            const keyHex = await exportKeyBytes(aesKey);
-            console.log(`[${username}] Shared key with ${otherUsername}: ${keyHex}`);
-
-            const decryptedText = await decryptMessage(aesKey, msg.content);
-            return { ...msg, decrypted: decryptedText };
-          } catch (error) {
-            console.error('Failed to decrypt message:', error, msg);
-            return { ...msg, decrypted: '[Decryption Failed]' };
-          }
-        })
-      );
-
-      console.log('All decrypted messages:', decrypted);
-      setMessages(decrypted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
+      console.log('Initializing app for:', storedUsername);
+      setConnectionStatus('connecting');
+      const result = await initializeAuth(storedUsername);
+      if (result.success) {
+        await handleFetchUsers(storedUsername, updateUserInMap);
+        console.log('App initialization complete');
+      }
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      console.error('Failed to initialize:', error);
+      setConnectionStatus('disconnected');
     }
   };
 
-  const startPolling = () => {
-    if (polling) clearInterval(polling);
-    const id = setInterval(handleFetchMessages, 3000);
-    setPolling(id);
-  };
+  // Setup WebSocket handlers once on mount
+  useEffect(() => {
+    console.log('Setting up WebSocket handlers');
+    const cleanup = setupWebSocketHandlers(
+      (data) => handleDecryptAndAddMessage(data, handleDecryptMessage, privateKeyRef),
+      (messageList) => handleDecryptMessages(messageList, handleDecryptMessage),
+      updateUserPresence
+    );
+    
+    return cleanup;
+  }, [setupWebSocketHandlers, handleDecryptAndAddMessage, handleDecryptMessages, handleDecryptMessage, privateKeyRef, updateUserPresence]);
 
+  // Handle initial app setup
   useEffect(() => {
     const storedUsername = localStorage.getItem('username');
     if (storedUsername) {
+      console.log('Found stored username:', storedUsername);
       setUsername(storedUsername);
-      (async () => {
-        try {
-          const { privateKey: privKey, publicKey: pubKey } = await generateOrLoadKeyPair();
-          setPrivateKey(privKey);
-          setPublicKeyBase64(pubKey);
-          await handleFetchUsers();
-          startPolling();
-        } catch (error) {
-          console.error('Failed to initialize:', error);
-        }
-      })();
+      initializeApp(storedUsername);
     }
-  }, []);
 
-  useEffect(() => {
     return () => {
-      if (polling) clearInterval(polling);
+      disconnect();
     };
-  }, [polling]);
+  }, []); // Run once on mount
+
+  // Auto-refresh messages when connection is established or user is selected
+  useEffect(() => {
+    if (connectionStatus === 'connected' && username && privateKey) {
+      console.log('Connection ready, fetching messages');
+      onFetchMessages();
+    }
+  }, [connectionStatus, username, selectedUser, privateKey]);
 
   if (!username) {
-  return (
-    <Registration 
-      inputUsername={inputUsername}
-      inputPassword={inputPassword}
-      onUsernameChange={setInputUsername}
-      onPasswordChange={setInputPassword}
-      onRegister={handleRegisterUser}
-      isLogin={isLogin}
-      onToggleMode={() => setIsLogin(!isLogin)}
-    />
-  );
+    return (
+      <Registration 
+        inputUsername={inputUsername}
+        inputPassword={inputPassword}
+        onUsernameChange={setInputUsername}
+        onPasswordChange={setInputPassword}
+        onRegister={onRegisterUser}
+        isLogin={isLogin}
+        onToggleMode={() => setIsLogin(!isLogin)}
+      />
+    );
   }
 
   return (
     <div style={{ padding: 20, fontFamily: 'Arial', maxWidth: 800 }}>
+      {/* Key Change Notifications */}
+      {keyChangeNotifications.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          {keyChangeNotifications.map(notification => (
+            <div 
+              key={notification.id}
+              style={{
+                backgroundColor: '#fff3cd',
+                border: '1px solid #ffeaa7',
+                borderRadius: 4,
+                padding: 10,
+                marginBottom: 10,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <div>
+                <strong>🔑 Security Key Updated</strong>
+                <div style={{ fontSize: '14px', marginTop: 5 }}>
+                  {notification.message}
+                </div>
+              </div>
+              <button 
+                onClick={() => dismissKeyNotification(notification.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2>Welcome, {username}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span 
+            style={{ 
+              color: connectionStatus === 'connected' ? 'green' : 
+                     connectionStatus === 'connecting' ? 'orange' : 'red',
+              fontSize: '12px'
+            }}
+          >
+            ● {connectionStatus.toUpperCase()}
+          </span>
+          <span style={{ fontSize: '12px', color: privateKey ? 'green' : 'red' }}>
+            🔑 {privateKey ? 'KEY OK' : 'NO KEY'}
+          </span>
+          <button onClick={onLogout}>
+            Logout
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
@@ -204,14 +224,15 @@ const handleRegisterUser = async () => {
             users={users}
             selectedUser={selectedUser}
             onUserSelect={setSelectedUser}
-            onRefresh={handleFetchUsers}
+            onRefresh={onFetchUsers}
           />
 
           <MessageInput 
             selectedUser={selectedUser}
             message={message}
             onMessageChange={setMessage}
-            onSendMessage={handleSendMessage}
+            onSendMessage={onSendMessage}
+            disabled={connectionStatus !== 'connected' || !privateKey}
           />
         </div>
 
@@ -219,7 +240,6 @@ const handleRegisterUser = async () => {
           messages={messages}
           currentUsername={username}
           selectedUser={selectedUser}
-          onRefresh={handleFetchMessages}
         />
       </div>
     </div>

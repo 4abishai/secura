@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+
+        input, button, select {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f8f9fa;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .message {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .sent { background-color: #e3f2fd; }
+        .received { background-color: #e8f5e8; }
+        .system { background-color: #fff3e0; }
+        .error { background-color: #ffebee; color: #c62828; }
+
+        .users {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .user {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+        .user.online { background-color: #c8e6c9; }
+        .user.offline { background-color: #ffcdd2; }
+    </style>
+</head>
+<body>
+<h1>WebSocket Chat Test Client</h1>
+
+<div class="container">
+    <h3>Connection</h3>
+    <div id="status" class="status disconnected">Disconnected</div>
+    <input type="text" id="serverUrl" value="ws://localhost:3000/chat" placeholder="WebSocket URL">
+    <input type="text" id="username" placeholder="Username" value="testuser1">
+    <button id="connectBtn" onclick="connect()">Connect</button>
+    <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+</div>
+
+<div class="container">
+    <h3>Send Message</h3>
+    <input type="text" id="recipient" placeholder="Recipient username" value="testuser2">
+    <input type="text" id="messageContent" placeholder="Message content">
+    <button id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
+    <button id="getMessagesBtn" onclick="getMessages()" disabled>Get Messages</button>
+</div>
+
+<div class="container">
+    <h3>Presence</h3>
+    <button id="onlineBtn" onclick="setPresence(true)" disabled>Set Online</button>
+    <button id="offlineBtn" onclick="setPresence(false)" disabled>Set Offline</button>
+</div>
+
+<div class="container">
+    <h3>Messages</h3>
+    <div id="messages" class="messages"></div>
+    <button onclick="clearMessages()">Clear Messages</button>
+</div>
+
+<div class="container">
+    <h3>Online Users</h3>
+    <div id="users" class="users"></div>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
