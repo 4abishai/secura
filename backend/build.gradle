@@ -35,6 +35,7 @@ dependencies {
 	implementation 'org.hibernate.validator:hibernate-validator:7.0.5.Final'
 	implementation 'org.glassfish:jakarta.el:4.0.2'// Expression Language for validation
 	implementation 'org.springframework.security:spring-security-crypto'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 }
 
 tasks.named('test') {

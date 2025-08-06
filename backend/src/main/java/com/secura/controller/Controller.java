@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,6 +20,10 @@ public class Controller {
     final UserRepository userRepository;
     final MessageRepository messageRepository;
     final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    // Message endpoints removed - now handled via WebSocket
+    // POST /messages -> handled by WebSocket "send_message" type
+    // GET /messages -> handled by WebSocket "get_messages" type
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {
@@ -73,36 +76,20 @@ public class Controller {
         }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found"));
     }
 
+    @GetMapping("/users/{username}")
+    public ResponseEntity<Map<String, String>> getUserPublicInfo(@PathVariable String username) {
+        return userRepository.findById(username)
+                .map(user -> ResponseEntity.ok(Map.of(
+                        "username", user.getUsername(),
+                        "publicKey", user.getPublicKey()
+                )))
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "User not found")));
+    }
+
 
     @GetMapping("/users")
     public List<User> getUsers() {
         return userRepository.findAll();
     }
-
-    @PostMapping("/messages")
-    public Message sendMessage(@RequestBody Message message) {
-        message.setTimestamp(Instant.now());
-        return messageRepository.save(message);
-    }
-
-
-    @GetMapping("/messages")
-    public List<Message> getMessages(@RequestParam String user) {
-        return messageRepository.findAllMessagesForUser(user);
-    }
-
-    @PostMapping("/presence")
-    public ResponseEntity<?> updatePresence(@RequestBody Map<String, Object> payload) {
-        String username = (String) payload.get("username");
-        Boolean online = (Boolean) payload.get("online");
-        return userRepository.findById(username).map(user -> {
-            user.setOnline(online);
-            user.setLastSeen(System.currentTimeMillis());
-            return ResponseEntity.ok(userRepository.save(user));
-        }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
-    }
-
-
-
-
 }

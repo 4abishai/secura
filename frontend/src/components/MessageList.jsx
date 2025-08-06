@@ -1,7 +1,4 @@
-import React from 'react';
-
-const MessageList = ({ messages, currentUsername, selectedUser, onRefresh }) => {
-    // Filter messages for the current chat (selected user only)
+const MessageList = ({ messages, currentUsername, selectedUser }) => {
     const filteredMessages = messages.filter(
         m =>
             (m.sender === currentUsername && m.recipient === selectedUser) ||
@@ -12,13 +9,6 @@ const MessageList = ({ messages, currentUsername, selectedUser, onRefresh }) => 
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <h3 style={{ margin: 0 }}>Messages</h3>
-                <button
-                    onClick={onRefresh}
-                    style={{ padding: 6, fontSize: 12 }}
-                    title="Refresh messages"
-                >
-                    🔄 Refresh
-                </button>
             </div>
             <div style={{
                 display: 'flex',
@@ -51,8 +41,8 @@ const MessageList = ({ messages, currentUsername, selectedUser, onRefresh }) => 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#555', marginBottom: 4, width: '100%', gap: 10, whiteSpace: 'nowrap' }}>
                                 {m.sender === currentUsername ? 'You' : m.sender}
                                 <span style={{ float: 'right' }}>
-                  {new Date(m.timestamp).toLocaleTimeString()}
-                </span>
+                                    {new Date(m.timestamp).toLocaleTimeString()}
+                                </span>
                             </div>
                             <div>{m.decrypted}</div>
                         </div>
@@ -62,5 +52,4 @@ const MessageList = ({ messages, currentUsername, selectedUser, onRefresh }) => 
         </div>
     );
 };
-
 export default MessageList;

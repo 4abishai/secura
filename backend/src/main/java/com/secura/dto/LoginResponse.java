@@ -1,4 +1,4 @@
-package com.secura.DTO;
+package com.secura.dto;
 
 import lombok.Getter;
 import lombok.Setter;
