@@ -113,17 +113,12 @@ class WebSocketService {
     });
   }
 
-  sendMessage(recipient, content) {
+  sendMessage(recipient, content, tempId) {
     return this.send({
       type: 'send_message',
       recipient: recipient,
-      content: content
-    });
-  }
-
-  getMessages() {
-    return this.send({
-      type: 'get_messages'
+      content: content,
+      tempId: tempId
     });
   }
 

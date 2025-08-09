@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { fetchMessages, sendMessage, isWebSocketConnected, fetchUsers } from '../services/api';
+// hooks/useChat.js
+import { useState, useCallback, useEffect } from 'react';
+import { sendMessage, isWebSocketConnected, fetchUsers } from '../services/api';
+import { messageStore } from '../services/messageStore';
 
 export const useChat = () => {
   // Message state
@@ -10,22 +12,24 @@ export const useChat = () => {
   // User state
   const [users, setUsers] = useState([]);
 
-  // Message handling functions
-  const handleDecryptMessages = async (messageList, handleDecryptMessage) => {
+  // Load messages from IndexedDB when user is selected
+  const loadMessagesFromStorage = useCallback(async (currentUsername, otherUsername) => {
+    if (!currentUsername || !otherUsername) return;
+    
     try {
-      const decrypted = await Promise.all(
-        messageList.map(handleDecryptMessage)
-      );
-      setMessages(decrypted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
+      console.log(`Loading messages for conversation: ${currentUsername} <-> ${otherUsername}`);
+      const storedMessages = await messageStore.getMessagesForConversation(currentUsername, otherUsername);
+      console.log(`Loaded ${storedMessages.length} messages from IndexedDB`);
+      setMessages(storedMessages);
     } catch (error) {
-      console.error('Failed to decrypt messages:', error);
+      console.error('Failed to load messages from storage:', error);
+      setMessages([]);
     }
-  };
+  }, []);
 
+  // Handle new message - decrypt and store
   const handleDecryptAndAddMessage = async (messageData, handleDecryptMessage, privateKeyRef) => {
     console.log("Processing new message...");
-    console.log('Private Key available:', !!privateKeyRef.current);
-    console.log('Message Data:', messageData);
     
     if (!privateKeyRef.current) {
       console.warn('Cannot decrypt new message: private key not available');
@@ -33,22 +37,34 @@ export const useChat = () => {
     }
 
     try {
-      console.log("Decrypting message...");
+      // Check if message already exists
+      const exists = await messageStore.messageExists(messageData.id);
+      if (exists) {
+        console.log('Message already exists in IndexedDB, skipping');
+        return;
+      }
+
+      console.log("Decrypting new message...");
       const decryptedMessage = await handleDecryptMessage(messageData);
       console.log('Decrypted message:', decryptedMessage);
       
+      // Store in IndexedDB
+      await messageStore.addMessage(decryptedMessage);
+      
+      // Update UI if this message is part of current conversation
       setMessages(prevMessages => {
-        const messageExists = prevMessages.some(msg => msg.id === decryptedMessage.id);
+        const messageExists = prevMessages.some(msg => msg.messageId === decryptedMessage.id);
         if (messageExists) return prevMessages;
         
         const updatedMessages = [...prevMessages, decryptedMessage];
         return updatedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       });
     } catch (error) {
-      console.error('Failed to decrypt new message:', error);
+      console.error('Failed to decrypt and store new message:', error);
     }
   };
 
+  // Send message - encrypt and store locally
   const handleSendMessage = async (encryptMessage, usernameRef, privateKeyRef) => {
     if (!message.trim() || !selectedUser) return;
     
@@ -59,7 +75,32 @@ export const useChat = () => {
 
     try {
       const encrypted = await encryptMessage(selectedUser, message);
-      await sendMessage(selectedUser, encrypted);
+      
+      // Create message object for local storage with temporary ID
+      const tempId = Date.now().toString();
+
+      // Send message via WebSocket (doesn't return response directly)
+      await sendMessage(selectedUser, encrypted, tempId );
+      const messageData = {
+        id: tempId,
+        messageId: tempId, // Will be updated when server confirms
+        sender: usernameRef.current,
+        recipient: selectedUser,
+        content: encrypted,
+        decrypted: message,
+        timestamp: new Date().toISOString(),
+        pending: true // Mark as pending until server confirms
+      };
+      
+      // Store sent message locally immediately
+      await messageStore.addMessage(messageData);
+      
+      // Update UI immediately
+      setMessages(prevMessages => {
+        const updatedMessages = [...prevMessages, messageData];
+        return updatedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      });
+      
       setMessage('');
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -67,35 +108,47 @@ export const useChat = () => {
     }
   };
 
-  const handleFetchMessages = async (usernameRef, privateKeyRef) => {
-    if (!usernameRef.current || !privateKeyRef.current || !isWebSocketConnected()) {
-      console.warn('Cannot fetch messages: missing requirements', {
-        username: !!usernameRef.current,
-        privateKey: !!privateKeyRef.current,
-        websocket: isWebSocketConnected()
-      });
-      return;
-    }
 
+
+  // Handle message history from message store (indexedDB)
+  const handleDecryptMessages = async (messageList, handleDecryptMessage) => {
     try {
-      fetchMessages();
+      const decryptedMessages = await Promise.all(
+        messageList.map(async (msg) => {
+          // Check if already stored
+          const exists = await messageStore.messageExists(msg.id);
+          if (exists) return null;
+          
+          return await handleDecryptMessage(msg);
+        })
+      );
+      
+      // Filter out null values and store new messages
+      const newMessages = decryptedMessages.filter(msg => msg !== null);
+      
+      for (const msg of newMessages) {
+        await messageStore.addMessage(msg);
+      }
+      
+      console.log(`Stored ${newMessages.length} new messages in IndexedDB`);
+      
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      console.error('Failed to process message history:', error);
     }
   };
 
-  const clearMessages = () => {
+  const clearMessages = async () => {
     setMessages([]);
+    await messageStore.clearAllMessages();
   };
 
-  // User handling functions
+  // User handling functions (unchanged)
   const handleFetchUsers = async (username, updateUserInMap) => {
     try {
       const data = await fetchUsers();
       const filteredUsers = data.filter(u => u.username !== username);
       setUsers(filteredUsers);
       
-      // Create user map for quick lookup
       data.forEach(user => {
         updateUserInMap(user.username, user);
       });
@@ -109,16 +162,6 @@ export const useChat = () => {
       prevUsers.map(user => 
         user.username === username 
           ? { ...user, online, lastSeen }
-          : user
-      )
-    );
-  };
-
-  const updateUserKey = (username, publicKey) => {
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
-        user.username === username 
-          ? { ...user, publicKey }
           : user
       )
     );
@@ -145,13 +188,12 @@ export const useChat = () => {
     handleDecryptMessages,
     handleDecryptAndAddMessage,
     handleSendMessage,
-    handleFetchMessages,
     clearMessages,
+    loadMessagesFromStorage,
     
     // User functions
     handleFetchUsers,
     updateUserPresence,
-    updateUserKey,
     clearUsers
   };
 };

@@ -1,3 +1,5 @@
+// src/hooks/useWebSocket.js
+
 import { useState, useCallback, useEffect } from 'react';
 import { 
   onWebSocketMessage, 
@@ -5,6 +7,7 @@ import {
   updatePresence, 
   isWebSocketConnected 
 } from '../services/api';
+import { messageStore } from '../services/messageStore';
 
 export const useWebSocket = (username) => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -34,17 +37,26 @@ export const useWebSocket = (username) => {
     };
   }, [username]);
 
-  // WebSocket message handlers setup
-  const setupWebSocketHandlers = useCallback((
-    handleDecryptAndAddMessage, 
-    handleDecryptMessages, 
-    updateUserPresence
-  ) => {
+const setupWebSocketHandlers = useCallback((
+  handleDecryptAndAddMessage, 
+  handleDecryptMessages, 
+  updateUserPresence,
+  handleDecryptMessage,
+  privateKeyRef
+) => {
+
+
     // Handle new incoming messages
-    const unsubscribeNewMessage = onWebSocketMessage('new_message', async (data) => {
-      console.log('Received new message:', data);
-      await handleDecryptAndAddMessage(data);
-    });
+const unsubscribeNewMessage = onWebSocketMessage('new_message', async (data) => {
+  console.log('Received new message:', data);
+  
+  await handleDecryptAndAddMessage(
+    { ...data, pending: false }, // Receiver always gets delivered message
+    handleDecryptMessage,        // Pass the decryption fn from outside
+    privateKeyRef                // Pass private key ref from outside
+  );
+});
+
 
     // Handle message history
     const unsubscribeMessageHistory = onWebSocketMessage('messages_history', async (data) => {
@@ -52,10 +64,14 @@ export const useWebSocket = (username) => {
       await handleDecryptMessages(data.messages);
     });
 
-    // Handle message sent confirmation
-    const unsubscribeMessageSent = onWebSocketMessage('message_sent', (data) => {
-      console.log('Message sent confirmation:', data);
-    });
+const unsubscribeMessageSent = onWebSocketMessage('message_sent', async (data) => {
+  console.log('Message sent confirmation:', data);
+  
+  if (data.tempId && data.messageId) {
+    await messageStore.updateMessageId(data.tempId, data.messageId);
+  }
+});
+
 
     // Handle user presence updates
     const unsubscribeUserPresence = onWebSocketMessage('user_presence', (data) => {

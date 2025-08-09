@@ -45,11 +45,11 @@ const SecureChatApp = () => {
     handleDecryptMessages,
     handleDecryptAndAddMessage,
     handleSendMessage,
-    handleFetchMessages,
     handleFetchUsers,
     updateUserPresence,
     clearMessages,
-    clearUsers
+    clearUsers,
+    loadMessagesFromStorage
   } = useChat();
 
   // WebSocket hook - handles connection and presence
@@ -76,21 +76,18 @@ const SecureChatApp = () => {
     await handleSendMessage(encryptMessage, usernameRef, privateKeyRef);
   };
 
-  const onFetchMessages = async () => {
-    await handleFetchMessages(usernameRef, privateKeyRef);
-  };
-
   const onFetchUsers = async () => {
     await handleFetchUsers(username, updateUserInMap);
   };
 
-  const onLogout = () => {
-    logout();
-    disconnect();
-    clearMessages();
-    clearUsers();
-    setSelectedUser(null);
-  };
+// Update the logout function:
+const onLogout = async () => {
+  logout();
+  disconnect();
+  // await clearMessages(); // This now clears IndexedDB
+  clearUsers();
+  setSelectedUser(null);
+};
 
   const initializeApp = async (storedUsername) => {
     try {
@@ -133,13 +130,17 @@ const SecureChatApp = () => {
     };
   }, []); // Run once on mount
 
-  // Auto-refresh messages when connection is established or user is selected
   useEffect(() => {
-    if (connectionStatus === 'connected' && username && privateKey) {
-      console.log('Connection ready, fetching messages');
-      onFetchMessages();
-    }
-  }, [connectionStatus, username, selectedUser, privateKey]);
+  if (selectedUser && username) {
+    loadMessagesFromStorage(username, selectedUser);
+  }
+}, [selectedUser, username, loadMessagesFromStorage]);
+
+useEffect(() => {
+  if (connectionStatus === 'connected' && username && privateKey) {
+    console.log('Connection ready - IndexedDB storage active');
+  }
+}, [connectionStatus, username, selectedUser, privateKey]);
 
   if (!username) {
     return (
@@ -157,7 +158,6 @@ const SecureChatApp = () => {
 
   return (
     <div style={{ padding: 20, fontFamily: 'Arial', maxWidth: 800 }}>
-      {/* Key Change Notifications */}
       {keyChangeNotifications.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           {keyChangeNotifications.map(notification => (

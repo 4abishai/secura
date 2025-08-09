@@ -68,19 +68,13 @@ export const registerWebSocketUser = (username) => {
   return websocketService.registerUser(username);
 };
 
-export const sendMessage = async (recipient, content) => {
+export const sendMessage = async (recipient, content, tempId) => {
   if (!websocketService.isConnected()) {
     throw new Error('WebSocket not connected');
   }
-  return websocketService.sendMessage(recipient, content);
+  return websocketService.sendMessage(recipient, content, tempId);
 };
 
-export const fetchMessages = () => {
-  if (!websocketService.isConnected()) {
-    throw new Error('WebSocket not connected');
-  }
-  return websocketService.getMessages();
-};
 
 export const updatePresence = (online) => {
   if (websocketService.isConnected()) {

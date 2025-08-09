@@ -1,3 +1,4 @@
+// src/hooks/useAuth.js
 import { useState, useRef, useEffect } from 'react';
 import { generateOrLoadKeyPair } from '../utils/keyUtils';
 import { registerUser, loginUser, connectWebSocket, registerWebSocketUser, fetchUserPublicKey } from '../services/api';
@@ -207,6 +208,8 @@ export const useAuth = () => {
 
   const logout = () => {
     localStorage.removeItem('username');
+    localStorage.removeItem('privateKey');
+    localStorage.removeItem('publicKey');
     setUsername('');
     setPrivateKeyAndRef(null);
     setInputUsername('');
