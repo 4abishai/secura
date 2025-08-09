@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -89,41 +90,41 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         broadcastUserPresence(username, true);
     }
 
+
     private void handleSendMessage(WebSocketSession session, JsonNode jsonMessage) throws Exception {
         String sender = (String) session.getAttributes().get("username");
         String recipient = jsonMessage.get("recipient").asText();
         String content = jsonMessage.get("content").asText();
+        String tempId = jsonMessage.has("tempId") ? jsonMessage.get("tempId").asText() : null;
 
-        // Save message to database
-        Message msg = new Message();
-        msg.setSender(sender);
-        msg.setRecipient(recipient);
-        msg.setContent(content);
-        msg.setTimestamp(Instant.now());
-        Message savedMessage = messageRepository.save(msg);
+        /* Remove the random UUID generation from here, as we will generate a message ID
+           after storing the message in the database to ensure it is unique and can be used
+           for delivery confirmation.
+        */
+        String messageId = UUID.randomUUID().toString();
 
-        // Prepare message response
         Map<String, Object> messageResponse = new HashMap<>();
         messageResponse.put("type", "new_message");
-        messageResponse.put("id", savedMessage.getId());
-        messageResponse.put("sender", savedMessage.getSender());
-        messageResponse.put("recipient", savedMessage.getRecipient());
-        messageResponse.put("content", savedMessage.getContent());
-        messageResponse.put("timestamp", savedMessage.getTimestamp().toString());
+        messageResponse.put("id", messageId);
+        messageResponse.put("sender", sender);
+        messageResponse.put("recipient", recipient);
+        messageResponse.put("content", content);
+        messageResponse.put("timestamp", Instant.now().toString());
 
-        // Send to recipient if online
         WebSocketSession recipientSession = userSessions.get(recipient);
         if (recipientSession != null && recipientSession.isOpen()) {
             sendMessage(recipientSession, messageResponse);
         }
 
-        // Send confirmation to sender
         Map<String, Object> confirmation = new HashMap<>();
         confirmation.put("type", "message_sent");
-        confirmation.put("messageId", savedMessage.getId());
+        confirmation.put("tempId", tempId);
+        confirmation.put("messageId", messageId);
         confirmation.put("delivered", recipientSession != null && recipientSession.isOpen());
         sendMessage(session, confirmation);
     }
+
+
 
     private void handleGetMessages(WebSocketSession session, JsonNode jsonMessage) throws Exception {
         String username = (String) session.getAttributes().get("username");

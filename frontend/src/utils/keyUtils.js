@@ -1,3 +1,4 @@
+// src/utils/keyUtils.js
 import { generateOrLoadKeyPair as cryptoGenerateOrLoadKeyPair } from './crypto';
 
 export const generateOrLoadKeyPair = async () => {
@@ -18,8 +19,6 @@ export const keyUtils = {
 
   clearStoredKeys: () => {
     try {
-      // Clear any stored key data from localStorage if applicable
-      // This would depend on your crypto implementation
       console.log('Clearing stored keys');
     } catch (error) {
       console.error('Error clearing stored keys:', error);
