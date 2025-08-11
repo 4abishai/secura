@@ -27,4 +27,7 @@ public class Message {
     private String content;
 
     private Instant timestamp;
+
+    @Column(nullable = false)
+    private boolean delivered = false; // ensures tracking delivery status
 }
