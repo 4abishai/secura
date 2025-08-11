@@ -57,6 +57,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 case "presence":
                     handlePresenceUpdate(session, jsonMessage);
                     break;
+                case "message_ack": // ACK handler
+                    handleAckMessage(jsonMessage);
+                    break;
                 default:
                     sendError(session, "Unknown message type: " + type);
             }
@@ -88,8 +91,20 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         // Broadcast user online status to all connected users
         broadcastUserPresence(username, true);
-    }
 
+        // Send undelivered messages
+        List<Message> undelivered = messageRepository.findByRecipientAndDeliveredFalse(username);
+        for (Message msg : undelivered) {
+            Map<String, Object> msgMap = new HashMap<>();
+            msgMap.put("type", "new_message");
+            msgMap.put("id", msg.getId());
+            msgMap.put("sender", msg.getSender());
+            msgMap.put("recipient", msg.getRecipient());
+            msgMap.put("content", msg.getContent());
+            msgMap.put("timestamp", msg.getTimestamp().toString());
+            sendMessage(session, msgMap);
+        }
+    }
 
     private void handleSendMessage(WebSocketSession session, JsonNode jsonMessage) throws Exception {
         String sender = (String) session.getAttributes().get("username");
@@ -97,21 +112,30 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String content = jsonMessage.get("content").asText();
         String tempId = jsonMessage.has("tempId") ? jsonMessage.get("tempId").asText() : null;
 
-        /* Remove the random UUID generation from here, as we will generate a message ID
-           after storing the message in the database to ensure it is unique and can be used
-           for delivery confirmation.
-        */
-        String messageId = UUID.randomUUID().toString();
+        // Save message in DB first
+        Message savedMessage = new Message();
+        savedMessage.setSender(sender);
+        savedMessage.setRecipient(recipient);
+        savedMessage.setContent(content);
+        savedMessage.setTimestamp(Instant.now());
 
+        WebSocketSession recipientSession = userSessions.get(recipient);
+        if (recipientSession != null && recipientSession.isOpen()) {
+            savedMessage.setDelivered(true);
+        } else {
+            savedMessage.setDelivered(false);
+        }
+        savedMessage = messageRepository.save(savedMessage);
+
+        // Prepare message payload
         Map<String, Object> messageResponse = new HashMap<>();
         messageResponse.put("type", "new_message");
-        messageResponse.put("id", messageId);
+        messageResponse.put("id", savedMessage.getId()); // DB ID for ACK
         messageResponse.put("sender", sender);
         messageResponse.put("recipient", recipient);
         messageResponse.put("content", content);
-        messageResponse.put("timestamp", Instant.now().toString());
+        messageResponse.put("timestamp", savedMessage.getTimestamp().toString());
 
-        WebSocketSession recipientSession = userSessions.get(recipient);
         if (recipientSession != null && recipientSession.isOpen()) {
             sendMessage(recipientSession, messageResponse);
         }
@@ -119,12 +143,17 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         Map<String, Object> confirmation = new HashMap<>();
         confirmation.put("type", "message_sent");
         confirmation.put("tempId", tempId);
-        confirmation.put("messageId", messageId);
-        confirmation.put("delivered", recipientSession != null && recipientSession.isOpen());
+        confirmation.put("messageId", savedMessage.getId());
+        confirmation.put("delivered", savedMessage.isDelivered());
         sendMessage(session, confirmation);
     }
 
-
+    // ACK handler
+    private void handleAckMessage(JsonNode jsonMessage) {
+        Long messageId = jsonMessage.get("messageId").asLong();
+        messageRepository.deleteById(messageId);
+        log.info("Deleted message with ID {} after ACK", messageId);
+    }
 
     private void handleGetMessages(WebSocketSession session, JsonNode jsonMessage) throws Exception {
         String username = (String) session.getAttributes().get("username");

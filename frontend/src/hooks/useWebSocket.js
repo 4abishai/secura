@@ -5,7 +5,8 @@ import {
   onWebSocketMessage, 
   disconnectWebSocket, 
   updatePresence, 
-  isWebSocketConnected 
+  isWebSocketConnected,
+  sendMessageAck
 } from '../services/api';
 import { messageStore } from '../services/messageStore';
 
@@ -49,6 +50,15 @@ const setupWebSocketHandlers = useCallback((
     // Handle new incoming messages
 const unsubscribeNewMessage = onWebSocketMessage('new_message', async (data) => {
   console.log('Received new message:', data);
+
+  // Send ACK back to server
+  if (data.id) {
+    try {
+      sendMessageAck(data.id);
+    } catch (err) {
+      console.error('Failed to send ACK:', err);
+    }
+}
   
   await handleDecryptAndAddMessage(
     { ...data, pending: false }, // Receiver always gets delivered message

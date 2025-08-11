@@ -75,6 +75,11 @@ export const sendMessage = async (recipient, content, tempId) => {
   return websocketService.sendMessage(recipient, content, tempId);
 };
 
+export const sendMessageAck = (messageId) => {
+    if (websocketService.isConnected()) {
+        websocketService.send({ type: 'message_ack', messageId });
+    }
+};
 
 export const updatePresence = (online) => {
   if (websocketService.isConnected()) {

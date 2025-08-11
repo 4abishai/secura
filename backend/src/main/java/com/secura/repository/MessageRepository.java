@@ -15,4 +15,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Query("SELECT m FROM Message m WHERE m.sender = :user OR m.recipient = :user ORDER BY m.timestamp ASC")
     List<Message> findAllMessagesForUser(@Param("user") String user);
 
+    List<Message> findByRecipientAndDeliveredFalse(String recipient); // fetch undelivered
+
+    void deleteById(Long id); // needed for ACK deletion
 }
