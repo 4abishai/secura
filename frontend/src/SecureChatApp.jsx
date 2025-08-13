@@ -84,7 +84,7 @@ const SecureChatApp = () => {
 const onLogout = async () => {
   logout();
   disconnect();
-  // await clearMessages(); // This now clears IndexedDB
+  await clearMessages(); // This now clears IndexedDB
   clearUsers();
   setSelectedUser(null);
 };
