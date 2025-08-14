@@ -17,8 +17,8 @@
     "libsodium-wrappers": "^0.7.15",
     "localforage": "^1.10.0",
     "lucide-react": "^0.525.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

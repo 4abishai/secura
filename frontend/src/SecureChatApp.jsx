@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useChat } from './hooks/useChat';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -7,9 +7,10 @@ import Registration from './components/Registration';
 import UserList from './components/UserList';
 import MessageInput from './components/MessageInput';
 import MessageList from './components/MessageList';
+import SpeechRecorder from './components/SpeechRecorder.jsx';
 
 const SecureChatApp = () => {
-  // Auth hook - handles authentication, keys, and encryption
+  // Auth hook
   const {
     username,
     setUsername,
@@ -34,7 +35,7 @@ const SecureChatApp = () => {
     dismissKeyNotification
   } = useAuth();
 
-  // Chat hook - handles messages and users
+  // Chat hook
   const {
     messages,
     message,
@@ -52,13 +53,16 @@ const SecureChatApp = () => {
     loadMessagesFromStorage
   } = useChat();
 
-  // WebSocket hook - handles connection and presence
+  // WebSocket hook
   const {
     connectionStatus,
     setConnectionStatus,
     setupWebSocketHandlers,
     disconnect
   } = useWebSocket(username);
+
+  // Recorder toggle state
+  const [showRecorder, setShowRecorder] = useState(false);
 
   const onRegisterUser = async () => {
     try {
@@ -67,7 +71,7 @@ const SecureChatApp = () => {
       if (result.success) {
         await handleFetchUsers(username, updateUserInMap);
       }
-    } catch (error) {
+    } catch {
       setConnectionStatus('disconnected');
     }
   };
@@ -80,71 +84,70 @@ const SecureChatApp = () => {
     await handleFetchUsers(username, updateUserInMap);
   };
 
-// Update the logout function:
-const onLogout = async () => {
-  logout();
-  disconnect();
-  await clearMessages(); // This now clears IndexedDB
-  clearUsers();
-  setSelectedUser(null);
-};
+  const onLogout = async () => {
+    logout();
+    disconnect();
+    await clearMessages();
+    clearUsers();
+    setSelectedUser(null);
+  };
 
   const initializeApp = async (storedUsername) => {
     try {
-      console.log('Initializing app for:', storedUsername);
       setConnectionStatus('connecting');
       const result = await initializeAuth(storedUsername);
       if (result.success) {
         await handleFetchUsers(storedUsername, updateUserInMap);
-        console.log('App initialization complete');
       }
-    } catch (error) {
-      console.error('Failed to initialize:', error);
+    } catch {
       setConnectionStatus('disconnected');
     }
   };
 
-  // Setup WebSocket handlers once on mount
+  // Setup WebSocket handlers
   useEffect(() => {
-    console.log('Setting up WebSocket handlers');
     const cleanup = setupWebSocketHandlers(
       (data) => handleDecryptAndAddMessage(data, handleDecryptMessage, privateKeyRef),
       (messageList) => handleDecryptMessages(messageList, handleDecryptMessage),
       updateUserPresence
     );
-    
     return cleanup;
-  }, [setupWebSocketHandlers, handleDecryptAndAddMessage, handleDecryptMessages, handleDecryptMessage, privateKeyRef, updateUserPresence]);
+  }, [
+    setupWebSocketHandlers,
+    handleDecryptAndAddMessage,
+    handleDecryptMessages,
+    handleDecryptMessage,
+    privateKeyRef,
+    updateUserPresence
+  ]);
 
-  // Handle initial app setup
+  // Initial app setup
   useEffect(() => {
     const storedUsername = localStorage.getItem('username');
     if (storedUsername) {
-      console.log('Found stored username:', storedUsername);
       setUsername(storedUsername);
       initializeApp(storedUsername);
     }
-
     return () => {
       disconnect();
     };
-  }, []); // Run once on mount
+  }, []);
 
   useEffect(() => {
-  if (selectedUser && username) {
-    loadMessagesFromStorage(username, selectedUser);
-  }
-}, [selectedUser, username, loadMessagesFromStorage]);
+    if (selectedUser && username) {
+      loadMessagesFromStorage(username, selectedUser);
+    }
+  }, [selectedUser, username, loadMessagesFromStorage]);
 
-useEffect(() => {
-  if (connectionStatus === 'connected' && username && privateKey) {
-    console.log('Connection ready - IndexedDB storage active');
-  }
-}, [connectionStatus, username, selectedUser, privateKey]);
+  // When speech transcription completes, put it directly into message state
+  const handleTranscriptionComplete = (transcribedText) => {
+    setMessage(transcribedText);
+    setShowRecorder(false); // optional: auto-close after recording
+  };
 
   if (!username) {
     return (
-      <Registration 
+      <Registration
         inputUsername={inputUsername}
         inputPassword={inputPassword}
         onUsernameChange={setInputUsername}
@@ -158,10 +161,11 @@ useEffect(() => {
 
   return (
     <div style={{ padding: 20, fontFamily: 'Arial', maxWidth: 800 }}>
+      {/* Key change notifications */}
       {keyChangeNotifications.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           {keyChangeNotifications.map(notification => (
-            <div 
+            <div
               key={notification.id}
               style={{
                 backgroundColor: '#fff3cd',
@@ -180,7 +184,7 @@ useEffect(() => {
                   {notification.message}
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => dismissKeyNotification(notification.id)}
                 style={{
                   background: 'none',
@@ -197,13 +201,15 @@ useEffect(() => {
         </div>
       )}
 
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2>Welcome, {username}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span 
-            style={{ 
-              color: connectionStatus === 'connected' ? 'green' : 
-                     connectionStatus === 'connecting' ? 'orange' : 'red',
+          <span
+            style={{
+              color:
+                connectionStatus === 'connected' ? 'green' :
+                connectionStatus === 'connecting' ? 'orange' : 'red',
               fontSize: '12px'
             }}
           >
@@ -212,22 +218,30 @@ useEffect(() => {
           <span style={{ fontSize: '12px', color: privateKey ? 'green' : 'red' }}>
             🔑 {privateKey ? 'KEY OK' : 'NO KEY'}
           </span>
-          <button onClick={onLogout}>
-            Logout
+          <button onClick={onLogout}>Logout</button>
+          <button onClick={() => setShowRecorder(prev => !prev)}>
+            {showRecorder ? 'Close Speech' : '🎤 Speech to Text'}
           </button>
         </div>
       </div>
 
+      {/* Speech recorder */}
+      {showRecorder && (
+        <div style={{ marginBottom: 20 }}>
+          <SpeechRecorder onTranscriptionComplete={handleTranscriptionComplete} />
+        </div>
+      )}
+
+      {/* Chat layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
         <div>
-          <UserList 
+          <UserList
             users={users}
             selectedUser={selectedUser}
             onUserSelect={setSelectedUser}
             onRefresh={onFetchUsers}
           />
-
-          <MessageInput 
+          <MessageInput
             selectedUser={selectedUser}
             message={message}
             onMessageChange={setMessage}
@@ -235,8 +249,7 @@ useEffect(() => {
             disabled={connectionStatus !== 'connected' || !privateKey}
           />
         </div>
-
-        <MessageList 
+        <MessageList
           messages={messages}
           currentUsername={username}
           selectedUser={selectedUser}

@@ -5,7 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="281ac43c-6259-4b06-8da2-38bcac6998e2" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/frontend/src/components/SpeechRecorder.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend-flask/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend-flask/server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/SecureChatApp.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/SecureChatApp.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,20 +37,25 @@
   &quot;associatedIndex&quot;: 5
 }</component>
   <component name="ProjectId" id="30ZxR3fOxlxjONOS2gsSfBHh2IK" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
     "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "Application.Backend.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "feature/speech-to-text",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/KIIT/secura/backend",
+    "last_opened_file_path": "C:/Users/KIIT/secura/backend-spring-boot",
     "settings.editor.selected.configurable": "preferences.pluginManager",
     "show.migrate.to.gradle.popup": "false"
   }
@@ -85,5 +93,8 @@
       <updated>1753848884691</updated>
     </task>
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
   </component>
 </project>
