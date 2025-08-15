@@ -26,3 +26,7 @@ dist-ssr
 # Local env files
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env
+backend-flask/.env
