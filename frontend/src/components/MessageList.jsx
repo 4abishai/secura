@@ -1,55 +1,135 @@
-const MessageList = ({ messages, currentUsername, selectedUser }) => {
-    const filteredMessages = messages.filter(
-        m =>
-            (m.sender === currentUsername && m.recipient === selectedUser) ||
-            (m.sender === selectedUser && m.recipient === currentUsername)
-    );
+// components/MessageList.jsx - Enhanced Version
+import React, { useRef, useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
+import MessageSearch from './MessageSearch';
 
-    return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h3 style={{ margin: 0 }}>Messages</h3>
+const MessageList = ({ messages, currentUsername, selectedUser }) => {
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const messageRefs = useRef({});
+  const containerRef = useRef(null);
+
+  const filteredMessages = messages.filter(
+    m =>
+      (m.sender === currentUsername && m.recipient === selectedUser) ||
+      (m.sender === selectedUser && m.recipient === currentUsername)
+  );
+
+  // Handle message found from search
+  const handleMessageFound = (foundMessage, matchIndex, totalMatches) => {
+    setHighlightedMessageId(foundMessage.id || foundMessage.messageId);
+    
+    // Scroll to the found message
+    const messageElement = messageRefs.current[foundMessage.id || foundMessage.messageId];
+    if (messageElement) {
+      messageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center'
+      });
+      
+      // Add a temporary highlight animation
+      messageElement.classList.add('search-match-highlight');
+      setTimeout(() => {
+        messageElement.classList.remove('search-match-highlight');
+      }, 2000);
+    }
+  };
+
+  // Clear highlight when search is closed
+  const handleSearchClose = () => {
+    setIsSearchVisible(false);
+    setHighlightedMessageId(null);
+  };
+
+  // Handle keyboard shortcut for search (Ctrl+F or Cmd+F)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setIsSearchVisible(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Render message content with potential highlighting
+  const renderMessageContent = (message) => {
+    const content = message.decrypted || message.content || '';
+    
+    // If this message is highlighted from search, we don't need to re-highlight
+    // The search component handles highlighting in its own display
+    return content;
+  };
+
+  return (
+    <div className="message-list-container" ref={containerRef}>
+      {/* Search Component */}
+      <MessageSearch
+        messages={messages}
+        currentUsername={currentUsername}
+        selectedUser={selectedUser}
+        onMessageFound={handleMessageFound}
+        isVisible={isSearchVisible}
+        onClose={handleSearchClose}
+      />
+
+      {/* Header with Search Button */}
+      <div className="message-list-header">
+        <h3>Messages</h3>
+        {selectedUser && (
+          <button
+            onClick={() => setIsSearchVisible(!isSearchVisible)}
+            className="search-toggle-button"
+            title="Search messages (Ctrl+F)"
+          >
+            <Search size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* Messages */}
+      <div className="messages-container">
+        {!selectedUser ? (
+          <div className="no-selection">
+            Select a user to start chatting
+          </div>
+        ) : filteredMessages.length === 0 ? (
+          <div className="no-messages">
+            No conversation yet with {selectedUser}
+          </div>
+        ) : (
+          filteredMessages.map((m, i) => (
+            <div
+              key={m.id || m.messageId || i}
+              ref={el => messageRefs.current[m.id || m.messageId] = el}
+              className={`message ${
+                m.sender === currentUsername ? 'sent' : 'received'
+              } ${
+                highlightedMessageId === (m.id || m.messageId) ? 'highlighted' : ''
+              }`}
+            >
+              <div className="message-header">
+                <span className="sender">
+                  {m.sender === currentUsername ? 'You' : m.sender}
+                </span>
+                <span className="timestamp">
+                  {new Date(m.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+              <div 
+                className="message-content"
+                dangerouslySetInnerHTML={{
+                  __html: renderMessageContent(m)
+                }}
+              />
             </div>
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-                border: '1px solid #ccc',
-                padding: 10,
-                borderRadius: 4,
-                height: 400,
-                overflowY: 'auto',
-                backgroundColor: '#f9f9f9'
-            }}>
-                {!selectedUser ? (
-                    <p style={{ color: '#666' }}>Select a user to start chatting</p>
-                ) : filteredMessages.length === 0 ? (
-                    <p style={{ color: '#666' }}>No conversation yet with {selectedUser}</p>
-                ) : (
-                    filteredMessages.map((m, i) => (
-                        <div
-                            key={i}
-                            style={{
-                                alignSelf: m.sender === currentUsername ? 'flex-end' : 'flex-start',
-                                backgroundColor: m.sender === currentUsername ? '#dcf8c6' : '#ffffff',
-                                padding: 10,
-                                borderRadius: 8,
-                                maxWidth: '75%',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#555', marginBottom: 4, width: '100%', gap: 10, whiteSpace: 'nowrap' }}>
-                                {m.sender === currentUsername ? 'You' : m.sender}
-                                <span style={{ float: 'right' }}>
-                                    {new Date(m.timestamp).toLocaleTimeString()}
-                                </span>
-                            </div>
-                            <div>{m.decrypted}</div>
-                        </div>
-                    ))
-                )}
-            </div>
-        </div>
-    );
+          ))
+        )}
+      </div>
+    </div>
+  );
 };
+
 export default MessageList;
