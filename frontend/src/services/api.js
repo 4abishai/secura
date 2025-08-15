@@ -1,8 +1,7 @@
 // services/api.js
 import websocketService from './websocket';
 
-const apiBase = import.meta.env.VITE_API_BASE;
-
+const apiBase = "http://localhost:3000"
 
 // HTTP endpoints (registration, login, users list remain HTTP)
 export const registerUser = async (username, publicKey, password) => {
