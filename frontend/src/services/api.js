@@ -3,6 +3,57 @@ import websocketService from './websocket';
 
 const apiBase = "http://localhost:3000"
 
+import axios from 'axios';
+
+
+
+// Configure axios defaults
+axios.defaults.withCredentials = true;
+
+// Add this new search API function to your existing api.js
+export const searchMessages = async (currentUser, otherUser, query, options = {}) => {
+  try {
+    const {
+      limit = 50,
+      caseSensitive = false,
+      exactMatch = false
+    } = options;
+
+    const response = await axios.get(`${API_BASE_URL}/api/messages/search`, {
+      params: {
+        currentUser,
+        otherUser,
+        query,
+        limit,
+        caseSensitive,
+        exactMatch
+      },
+      withCredentials: true
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Search API failed:', error);
+    throw error;
+  }
+};
+
+// Enhanced message fetching with search capability
+export const fetchMessagesWithSearch = async (currentUser, otherUser) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/messages/${otherUser}`, {
+      params: { currentUser },
+      withCredentials: true
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Fetch messages failed:', error);
+    throw error;
+  }
+};
+
+
 // HTTP endpoints (registration, login, users list remain HTTP)
 export const registerUser = async (username, publicKey, password) => {
   const res = await fetch(`${apiBase}/register`, {

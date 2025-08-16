@@ -50,7 +50,12 @@ const SecureChatApp = () => {
     updateUserPresence,
     clearMessages,
     clearUsers,
-    loadMessagesFromStorage
+    loadMessagesFromStorage,
+    searchResults,
+    isSearching,
+    searchError,
+    handleSearchMessages,
+    clearSearchResults
   } = useChat();
 
   const {
