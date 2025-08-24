@@ -5,6 +5,8 @@ import os
 from dotenv import load_dotenv
 import json
 
+from summary import generate_summaries
+
 # Load environment variables
 load_dotenv()
 
@@ -211,6 +213,30 @@ def get_available_models():
             "moonshotai/kimi-k2-instruct"                      # Preview - Kimi K2
         ]
     })
+
+@app.route('/api/summarize', methods=['POST'])
+def summarize_text():
+    """
+    Endpoint to summarize text using BART and BERT
+    """
+    try:
+        data = request.get_json()
+        messages = data.get('text', '').strip()
+
+        if not messages:
+            print("No Message")
+            return jsonify({"error": "No messages provided"}), 400
+
+        text = "\n".join(
+            [f"{msg.get('sender', 'Unknown')}: {msg.get('content', '')}" for msg in messages]
+        )
+
+        print(text)
+        summaries = generate_summaries(text)
+        print(summaries)
+        return jsonify(summaries)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/chat/stream', methods=['POST'])
 def chat_with_groq_stream():
