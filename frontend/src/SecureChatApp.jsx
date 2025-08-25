@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useChat } from './hooks/useChat';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -38,6 +38,7 @@ const SecureChatApp = () => {
   const {
     messages,
     message,
+    setMessages,
     setMessage,
     selectedUser,
     setSelectedUser,
@@ -60,6 +61,9 @@ const SecureChatApp = () => {
     disconnect
   } = useWebSocket(username);
 
+  // AI processing state
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
+
   const onRegisterUser = async () => {
     try {
       setConnectionStatus('connecting');
@@ -72,22 +76,79 @@ const SecureChatApp = () => {
     }
   };
 
-  const onSendMessage = async () => {
+  // Function to call AI and get response
+// Function to simulate AI service call instead of real Groq API
+const callAIService = async (query) => {
+  try {
+    const response = await fetch('http://localhost:3001/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ query })
+    });
+
+    const data = await response.json();
+    if (data.success) {
+      return data.response;
+    }
+    return 'Error from AI: ' + data.error;
+  } catch (error) {
+    console.error('Error calling AI:', error);
+    return `Error calling AI: ${error.message}`;
+  }
+};
+
+const onSendMessage = async () => {
+  if (!message.trim() || !selectedUser) return;
+
+  const aiMentionMatch = message.match(/@AI\s+(.+)/i);
+
+  if (aiMentionMatch) {
+    setIsProcessingAI(true);
+
+    try {
+      const aiQuery = aiMentionMatch[1].trim();
+
+      // // 1️⃣ Optionally send the original @AI message
+      // await handleSendMessage(encryptMessage, usernameRef, privateKeyRef);
+
+      // 2️⃣ Call AI
+      const aiResponse = await callAIService(aiQuery);
+      console.log('AI Response:', aiResponse);
+
+      // 3️⃣ Send AI response as a normal chat message (without touching input box)
+      const aiMessageText = `🤖 AI Response: ${aiResponse}`;
+      await handleSendMessage(encryptMessage, usernameRef, privateKeyRef, aiMessageText);
+
+    } catch (error) {
+      console.error('Error processing @AI mention:', error);
+    } finally {
+      setIsProcessingAI(false);
+      setMessage(''); // clear input box
+    }
+  } else {
+    // Normal user message
     await handleSendMessage(encryptMessage, usernameRef, privateKeyRef);
-  };
+  }
+};
+
+
+
+
 
   const onFetchUsers = async () => {
     await handleFetchUsers(username, updateUserInMap);
   };
 
-// Update the logout function:
-const onLogout = async () => {
-  logout();
-  disconnect();
-  // await clearMessages(); // This now clears IndexedDB
-  clearUsers();
-  setSelectedUser(null);
-};
+  // Update the logout function:
+  const onLogout = async () => {
+    logout();
+    disconnect();
+    await clearMessages(); // This now clears IndexedDB
+    clearUsers();
+    setSelectedUser(null);
+  };
 
   const initializeApp = async (storedUsername) => {
     try {
@@ -131,16 +192,16 @@ const onLogout = async () => {
   }, []); // Run once on mount
 
   useEffect(() => {
-  if (selectedUser && username) {
-    loadMessagesFromStorage(username, selectedUser);
-  }
-}, [selectedUser, username, loadMessagesFromStorage]);
+    if (selectedUser && username) {
+      loadMessagesFromStorage(username, selectedUser);
+    }
+  }, [selectedUser, username, loadMessagesFromStorage]);
 
-useEffect(() => {
-  if (connectionStatus === 'connected' && username && privateKey) {
-    console.log('Connection ready - IndexedDB storage active');
-  }
-}, [connectionStatus, username, selectedUser, privateKey]);
+  useEffect(() => {
+    if (connectionStatus === 'connected' && username && privateKey) {
+      console.log('Connection ready - IndexedDB storage active');
+    }
+  }, [connectionStatus, username, selectedUser, privateKey]);
 
   if (!username) {
     return (
@@ -200,6 +261,17 @@ useEffect(() => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2>Welcome, {username}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {isProcessingAI && (
+            <span style={{ 
+              color: 'orange', 
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}>
+              🤖 Processing AI...
+            </span>
+          )}
           <span 
             style={{ 
               color: connectionStatus === 'connected' ? 'green' : 
@@ -218,6 +290,19 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* AI Mention Help */}
+      <div style={{
+        backgroundColor: '#f0f8ff',
+        border: '1px solid #b0d4f1',
+        borderRadius: '4px',
+        padding: '8px',
+        marginBottom: '15px',
+        fontSize: '12px',
+        color: '#2c5aa0'
+      }}>
+        💡 <strong>Tip:</strong> Type <code>@AI your question</code> in any chat to get AI assistance that both users can see
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
         <div>
           <UserList 
@@ -232,7 +317,7 @@ useEffect(() => {
             message={message}
             onMessageChange={setMessage}
             onSendMessage={onSendMessage}
-            disabled={connectionStatus !== 'connected' || !privateKey}
+            disabled={connectionStatus !== 'connected' || !privateKey || isProcessingAI}
           />
         </div>
 

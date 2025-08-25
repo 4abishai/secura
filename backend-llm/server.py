@@ -75,6 +75,91 @@ def call_groq_llm(query, model="llama-3.3-70b-versatile"):
             "response": ""
         }
 
+def load_queries_from_json(file_path):
+    """
+    Load queries from a JSON file
+    Expected JSON format:
+    {
+        "queries": [
+            {"id": 1, "query": "What is AI?"},
+            {"id": 2, "query": "Explain machine learning"}
+        ]
+    }
+    or
+    {
+        "query": "Single query here"
+    }
+    """
+    try:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"JSON file not found: {file_path}")
+        
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+        
+        # Handle different JSON formats
+        if isinstance(data, dict):
+            if 'queries' in data and isinstance(data['queries'], list):
+                # Multiple queries format
+                return [item['query'] for item in data['queries'] if 'query' in item]
+            elif 'query' in data:
+                # Single query format
+                return [data['query']]
+            else:
+                raise ValueError("Invalid JSON format. Expected 'query' or 'queries' field")
+        elif isinstance(data, list):
+            # Direct list of queries
+            return [item if isinstance(item, str) else item.get('query', '') for item in data]
+        else:
+            raise ValueError("Invalid JSON format")
+            
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON format: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error loading JSON file: {str(e)}")
+
+def process_queries_from_file(file_path, model="llama-3.3-70b-versatile"):
+    """
+    Process all queries from a JSON file and return results
+    """
+    try:
+        queries = load_queries_from_json(file_path)
+        results = []
+        
+        for i, query in enumerate(queries):
+            if query.strip():  # Skip empty queries
+                print(f"Processing query {i+1}: {query[:50]}...")
+                result = call_groq_llm(query.strip(), model)
+                results.append({
+                    "query_id": i + 1,
+                    "query": query.strip(),
+                    "result": result
+                })
+            else:
+                results.append({
+                    "query_id": i + 1,
+                    "query": "",
+                    "result": {
+                        "success": False,
+                        "error": "Empty query",
+                        "response": ""
+                    }
+                })
+        
+        return {
+            "success": True,
+            "total_queries": len(queries),
+            "processed_queries": len([r for r in results if r['result']['success']]),
+            "results": results
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "results": []
+        }
+
 @app.route('/', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -91,6 +176,7 @@ def chat_with_groq():
     Expects JSON payload with 'query' field
     """
     try:
+        print("Called /api/chat endpoint")
         # Get JSON data from request
         data = request.get_json()
         
@@ -133,6 +219,44 @@ def chat_with_groq():
             "success": False,
             "error": f"Server error: {str(e)}",
             "response": ""
+        }), 500
+
+@app.route('/api/chat/file', methods=['POST'])
+def chat_with_groq_from_file():
+    """
+    New endpoint to process queries from a JSON file
+    Expects JSON payload with 'file_path' field
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
+        
+        file_path = data.get('file_path', '').strip()
+        
+        if not file_path:
+            return jsonify({
+                "success": False,
+                "error": "file_path field is required"
+            }), 400
+        
+        # Get optional model parameter
+        model = data.get('model', 'llama-3.3-70b-versatile')
+        
+        # Process queries from file
+        result = process_queries_from_file(file_path, model)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Server error: {str(e)}",
+            "results": []
         }), 500
 
 @app.route('/api/chat/llama4', methods=['POST'])
@@ -187,9 +311,6 @@ def chat_with_llama4():
 
 @app.route('/api/models', methods=['GET'])
 def get_available_models():
-    """
-    Endpoint to get available Groq models
-    """
     """
     Endpoint to get available Groq models (Production models only)
     """
@@ -264,12 +385,36 @@ if __name__ == '__main__':
     print("Available endpoints:")
     print("  GET  /              - Health check")
     print("  POST /api/chat      - Chat with Groq LLM (default: Llama 3.3)")
+    print("  POST /api/chat/file - Process queries from JSON file")
     print("  POST /api/chat/llama4 - Chat with Llama 4 Maverick")
     print("  GET  /api/models    - Get available models")
     print("  POST /api/chat/stream - Streaming chat")
     
-    q="what is file"
-    print(call_groq_llm(q))
+    # Test with JSON file instead of hardcoded query
+    test_file_path = "queries.json"  # Default test file
+    
+    # You can also specify a different file path via command line argument
+    import sys
+    if len(sys.argv) > 1:
+        test_file_path = sys.argv[1]
+    
+    print(f"\nTesting with JSON file: {test_file_path}")
+    
+    # Test processing queries from file
+    if os.path.exists(test_file_path):
+        result = process_queries_from_file(test_file_path)
+        print("File processing result:")
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"Test file '{test_file_path}' not found. Create it with this format:")
+        print("""
+{
+    "queries": [
+        {"id": 1, "query": "What is artificial intelligence?"},
+        {"id": 2, "query": "Explain machine learning in simple terms"}
+    ]
+}
+        """)
 
     # Run the Flask app
     app.run(
