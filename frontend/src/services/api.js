@@ -95,3 +95,27 @@ export const onWebSocketMessage = (type, handler) => {
 export const isWebSocketConnected = () => {
   return websocketService.isConnected();
 };
+
+// summarizeMessages API call
+export const summarizeMessages = async (messages) => {
+  try {
+    const res = await fetch(`http://localhost:3001/api/summarize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: messages.map(m => ({
+          sender: m.sender,
+          content: m.decrypted,
+        }))
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Summarization failed: ${await res.text()}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.error("Error summarizing messages:", err);
+    throw err;
+  }
+};
