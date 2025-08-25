@@ -110,14 +110,14 @@ const onSendMessage = async () => {
     try {
       const aiQuery = aiMentionMatch[1].trim();
 
-      // // 1️⃣ Optionally send the original @AI message
+      // Optionally send the original @AI message
       // await handleSendMessage(encryptMessage, usernameRef, privateKeyRef);
 
-      // 2️⃣ Call AI
+      // Call AI
       const aiResponse = await callAIService(aiQuery);
       console.log('AI Response:', aiResponse);
 
-      // 3️⃣ Send AI response as a normal chat message (without touching input box)
+      // Send AI response as a normal chat message (without touching input box)
       const aiMessageText = `🤖 AI Response: ${aiResponse}`;
       await handleSendMessage(encryptMessage, usernameRef, privateKeyRef, aiMessageText);
 
@@ -132,9 +132,6 @@ const onSendMessage = async () => {
     await handleSendMessage(encryptMessage, usernameRef, privateKeyRef);
   }
 };
-
-
-
 
 
   const onFetchUsers = async () => {
