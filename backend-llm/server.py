@@ -221,7 +221,7 @@ def summarize_text():
     """
     try:
         data = request.get_json()
-        messages = data.get('text', '').strip()
+        messages = data.get('text', [])
 
         if not messages:
             print("No Message")
