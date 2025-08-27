@@ -217,26 +217,56 @@ def get_available_models():
 @app.route('/api/summarize', methods=['POST'])
 def summarize_text():
     """
-    Endpoint to summarize text using BART and BERT
+    Endpoint to summarize text using Groq LLM
     """
     try:
         data = request.get_json()
         messages = data.get('text', [])
 
         if not messages:
-            print("No Message")
-            return jsonify({"error": "No messages provided"}), 400
+            return jsonify({
+                "success": False,
+                "error": "No messages provided"
+            }), 400
 
+        # Join all messages into a single conversation-like text
         text = "\n".join(
             [f"{msg.get('sender', 'Unknown')}: {msg.get('content', '')}" for msg in messages]
         )
 
-        print(text)
-        summaries = generate_summaries(text)
-        print(summaries)
-        return jsonify(summaries)
+        # Build summarization prompt
+        prompt = f"""
+        Summarize the following conversation in clear, concise language.
+        Focus on key points, decisions, and important details. Avoid redundancy.
+
+        Conversation:
+        {text}
+        """
+
+        # Call Groq API
+        result = call_groq_llm(prompt, model="llama-3.3-70b-versatile")
+
+        if result['success']:
+            return jsonify({
+                "success": True,
+                "summary": result['response'],
+                "model": result['model'],
+                "usage": result.get('usage', {})
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": result['error'],
+                "summary": ""
+            }), 500
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "summary": ""
+        }), 500
+
 
 @app.route('/api/chat/stream', methods=['POST'])
 def chat_with_groq_stream():

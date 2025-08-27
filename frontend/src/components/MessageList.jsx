@@ -17,8 +17,8 @@ const MessageList = ({ messages, currentUsername, selectedUser }) => {
         setLoading(true);
         try {
             const result = await summarizeMessages(filteredMessages);
-            setSummary(result);
-            setShowSummary(true); // open sidebar when summary is ready
+            setSummary(result.summary); // API now returns { summary: "..." }
+            setShowSummary(true);
         } catch (err) {
             alert("Failed to summarize chat");
         }
@@ -124,8 +124,7 @@ const MessageList = ({ messages, currentUsername, selectedUser }) => {
                         <h4 style={{ margin: 0 }}>Chat Summary</h4>
                         <button onClick={() => setShowSummary(false)}>✖</button>
                     </div>
-                    <p><strong>BART:</strong> {summary.bart_summary}</p>
-                    <p><strong>BERT:</strong> {summary.bert_summary}</p>
+                    <p>{summary}</p>
                 </div>
             )}
         </div>
