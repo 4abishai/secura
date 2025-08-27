@@ -5,6 +5,8 @@ import os
 from dotenv import load_dotenv
 import json
 
+from summary import generate_summaries
+
 # Load environment variables
 load_dotenv()
 
@@ -134,6 +136,163 @@ def chat_with_groq():
             "success": False,
             "error": f"Server error: {str(e)}",
             "response": ""
+        }), 500
+
+@app.route('/api/chat/llama4', methods=['POST'])
+def chat_with_llama4():
+    """
+    Specific endpoint for Llama 4 Maverick model
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
+        
+        query = data.get('query', '').strip()
+        
+        if not query:
+            return jsonify({
+                "success": False,
+                "error": "Query field is required and cannot be empty"
+            }), 400
+        
+        # Use Llama 4 Maverick model specifically
+        model = "meta-llama/llama-4-maverick-17b-128e-instruct"
+        
+        # Call Groq API with Llama 4 Maverick
+        result = call_groq_llm(query, model)
+        
+        if result['success']:
+            return jsonify({
+                "success": True,
+                "response": result['response'],
+                "model": result['model'],
+                "usage": result.get('usage', {}),
+                "note": "Using Llama 4 Maverick (Preview model)"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": result['error'],
+                "response": ""
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Server error: {str(e)}",
+            "response": ""
+        }), 500
+
+@app.route('/api/models', methods=['GET'])
+def get_available_models():
+    """
+    Endpoint to get available Groq models
+    """
+    """
+    Endpoint to get available Groq models (Production models only)
+    """
+    models = [
+        "llama-3.3-70b-versatile",      # Production - Latest Llama 3.3 70B
+        "llama-3.1-8b-instant",        # Production - Fast 8B model
+        "gemma2-9b-it"                  # Production - Google's Gemma2 9B
+    ]
+    
+    return jsonify({
+        "success": True,
+        "models": models,
+        "default": "llama-3.3-70b-versatile",
+        "preview_models": [
+            "meta-llama/llama-4-maverick-17b-128e-instruct",  # Preview - Llama 4 Maverick
+            "meta-llama/llama-4-scout-17b-16e-instruct",      # Preview - Llama 4 Scout
+            "deepseek-r1-distill-llama-70b",                  # Preview - DeepSeek R1
+            "qwen/qwen3-32b",                                  # Preview - Qwen 3 32B
+            "moonshotai/kimi-k2-instruct"                      # Preview - Kimi K2
+        ]
+    })
+
+@app.route('/api/summarize', methods=['POST'])
+def summarize_text():
+    """
+    Endpoint to summarize text using Groq LLM
+    """
+    try:
+        data = request.get_json()
+        messages = data.get('text', [])
+
+        if not messages:
+            return jsonify({
+                "success": False,
+                "error": "No messages provided"
+            }), 400
+
+        # Join all messages into a single conversation-like text
+        text = "\n".join(
+            [f"{msg.get('sender', 'Unknown')}: {msg.get('content', '')}" for msg in messages]
+        )
+
+        # Build summarization prompt
+        prompt = f"""
+        Summarize the following conversation in clear, concise language.
+        Focus on key points, decisions, and important details. Avoid redundancy.
+
+        Conversation:
+        {text}
+        """
+
+        # Call Groq API
+        result = call_groq_llm(prompt, model="llama-3.3-70b-versatile")
+
+        if result['success']:
+            return jsonify({
+                "success": True,
+                "summary": result['response'],
+                "model": result['model'],
+                "usage": result.get('usage', {})
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": result['error'],
+                "summary": ""
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "summary": ""
+        }), 500
+
+
+@app.route('/api/chat/stream', methods=['POST'])
+def chat_with_groq_stream():
+    """
+    Streaming endpoint for chat (if needed for real-time responses)
+    """
+    try:
+        data = request.get_json()
+        query = data.get('query', '').strip()
+        
+        if not query:
+            return jsonify({
+                "success": False,
+                "error": "Query is required"
+            }), 400
+        
+        # For now, return non-streaming response
+        # You can implement Server-Sent Events (SSE) here if needed
+        result = call_groq_llm(query)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
         }), 500
 
 @app.errorhandler(404)
