@@ -93,6 +93,7 @@ def chat_with_groq():
     Expects JSON payload with 'query' field
     """
     try:
+        print("Called /api/chat endpoint")
         # Get JSON data from request
         data = request.get_json()
         
@@ -320,12 +321,6 @@ if __name__ == '__main__':
     print("Available endpoints:")
     print("  GET  /              - Health check")
     print("  POST /api/chat      - Chat with Groq LLM (default: Llama 3.3)")
-    print("  POST /api/chat/llama4 - Chat with Llama 4 Maverick")
-    print("  GET  /api/models    - Get available models")
-    print("  POST /api/chat/stream - Streaming chat")
-    
-    q="what is file"
-    print(call_groq_llm(q))
 
     # Run the Flask app
     app.run(
