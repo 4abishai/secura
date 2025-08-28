@@ -7,6 +7,7 @@ import Registration from './components/Registration';
 import UserList from './components/UserList';
 import MessageInput from './components/MessageInput';
 import MessageList from './components/MessageList';
+import { callAI } from './services/api';
 
 const SecureChatApp = () => {
   // Auth hook - handles authentication, keys, and encryption
@@ -76,29 +77,6 @@ const SecureChatApp = () => {
     }
   };
 
-  // Function to call AI and get response
-// Function to simulate AI service call instead of real Groq API
-const callAIService = async (query) => {
-  try {
-    const response = await fetch('http://localhost:3001/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ query })
-    });
-
-    const data = await response.json();
-    if (data.success) {
-      return data.response;
-    }
-    return 'Error from AI: ' + data.error;
-  } catch (error) {
-    console.error('Error calling AI:', error);
-    return `Error calling AI: ${error.message}`;
-  }
-};
-
 const onSendMessage = async () => {
   if (!message.trim() || !selectedUser) return;
 
@@ -114,7 +92,8 @@ const onSendMessage = async () => {
       // await handleSendMessage(encryptMessage, usernameRef, privateKeyRef);
 
       // Call AI
-      const aiResponse = await callAIService(aiQuery);
+      // const aiResponse = await callAIService(aiQuery);
+      const aiResponse = await callAI(aiQuery);
       console.log('AI Response:', aiResponse);
 
       // Send AI response as a normal chat message (without touching input box)
