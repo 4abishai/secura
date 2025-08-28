@@ -1,29 +1,25 @@
 package com.secura.controller;
 
-import com.secura.entity.Message;
 import com.secura.entity.User;
-import com.secura.repository.MessageRepository;
 import com.secura.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
+@RequestMapping("/api")
 @RequiredArgsConstructor
-public class Controller {
-    final UserRepository userRepository;
-    final MessageRepository messageRepository;
-    final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+public class UserController {
 
-    // Message endpoints removed - now handled via WebSocket
-    // POST /messages -> handled by WebSocket "send_message" type
-    // GET /messages -> handled by WebSocket "get_messages" type
+    private final UserRepository userRepository;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {
@@ -60,7 +56,6 @@ public class Controller {
             user.setOnline(true);
             user.setLastSeen(System.currentTimeMillis());
 
-            // Store public key as-is if provided
             if (publicKey != null && !publicKey.isEmpty()) {
                 user.setPublicKey(publicKey);
             }
@@ -87,9 +82,16 @@ public class Controller {
                         .body(Map.of("error", "User not found")));
     }
 
-
     @GetMapping("/users")
     public List<User> getUsers() {
         return userRepository.findAll();
+    }
+
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> healthCheck() {
+        return ResponseEntity.ok(Map.of(
+                "status", "UP",
+                "message", "Service is running"
+        ));
     }
 }
