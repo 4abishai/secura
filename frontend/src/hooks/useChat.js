@@ -64,49 +64,50 @@ export const useChat = () => {
     }
   };
 
-  // Send message - encrypt and store locally
-  const handleSendMessage = async (encryptMessage, usernameRef, privateKeyRef) => {
-    if (!message.trim() || !selectedUser) return;
-    
-    if (!privateKeyRef.current) {
-      alert('Cannot send message: encryption key not available');
-      return;
-    }
+// Send message - encrypt and store locally
+const handleSendMessage = async (encryptMessage, usernameRef, privateKeyRef, overrideMessage) => {
+  const textToSend = overrideMessage ?? message; // use override if provided
 
-    try {
-      const encrypted = await encryptMessage(selectedUser, message);
-      
-      // Create message object for local storage with temporary ID
-      const tempId = Date.now().toString();
+  if (!textToSend.trim() || !selectedUser) return;
 
-      // Send message via WebSocket (doesn't return response directly)
-      await sendMessage(selectedUser, encrypted, tempId );
-      const messageData = {
-        id: tempId,
-        messageId: tempId, // Will be updated when server confirms
-        sender: usernameRef.current,
-        recipient: selectedUser,
-        content: encrypted,
-        decrypted: message,
-        timestamp: new Date().toISOString(),
-        pending: true // Mark as pending until server confirms
-      };
-      
-      // Store sent message locally immediately
-      await messageStore.addMessage(messageData);
-      
-      // Update UI immediately
-      setMessages(prevMessages => {
-        const updatedMessages = [...prevMessages, messageData];
-        return updatedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      });
-      
-      setMessage('');
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      alert('Failed to send message. The recipient may have logged in from a new device. Please try again.');
-    }
-  };
+  if (!privateKeyRef.current) {
+    alert('Cannot send message: encryption key not available');
+    return;
+  }
+
+  try {
+    const encrypted = await encryptMessage(selectedUser, textToSend);
+
+    // Create message object for local storage with temporary ID
+    const tempId = Date.now().toString();
+
+    // Send via WebSocket
+    await sendMessage(selectedUser, encrypted, tempId);
+
+    const messageData = {
+      id: tempId,
+      messageId: tempId,
+      sender: usernameRef.current,
+      recipient: selectedUser,
+      content: encrypted,
+      decrypted: textToSend,
+      timestamp: new Date().toISOString(),
+      pending: true
+    };
+
+    // Store & update UI
+    await messageStore.addMessage(messageData);
+    setMessages(prev =>
+      [...prev, messageData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    );
+
+    if (!overrideMessage) setMessage(''); // only clear input if it's the user's own input
+  } catch (error) {
+    console.error('Failed to send message:', error);
+    alert('Failed to send message. Please try again.');
+  }
+};
+
 
 
 
