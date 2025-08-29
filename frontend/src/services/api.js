@@ -1,8 +1,10 @@
 // services/api.js
 import websocketService from './websocket';
 
-const apiBase = 'http://localhost:3000/api';
+const apiBase = import.meta.env.VITE_API_BASE;
 
+
+// HTTP endpoints (registration, login, users list remain HTTP)
 export const registerUser = async (username, publicKey, password) => {
   const res = await fetch(`${apiBase}/register`, {
     method: 'POST',
@@ -54,6 +56,7 @@ export const fetchUsers = async () => {
   return await res.json();
 };
 
+// WebSocket-based message functions
 export const connectWebSocket = async (wsUrl) => {
   return await websocketService.connect(wsUrl);
 };
@@ -85,53 +88,11 @@ export const updatePresence = (online) => {
   }
 };
 
+// WebSocket event handlers
 export const onWebSocketMessage = (type, handler) => {
   return websocketService.onMessage(type, handler);
 };
 
 export const isWebSocketConnected = () => {
   return websocketService.isConnected();
-};
-
-export const summarizeMessages = async (messages) => {
-  try {
-    const res = await fetch(`${apiBase}/summarize`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: messages.map(m => ({
-          sender: m.sender,
-          content: m.decrypted,
-        }))
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Summarization failed: ${await res.text()}`);
-    }
-    return await res.json();
-  } catch (err) {
-    console.error("Error summarizing messages:", err);
-    throw err;
-  }
-};
-
-export const callAI = async (query) => {
-  try {
-    const res = await fetch(`${apiBase}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
-
-    if (!res.ok) {
-      return `HTTP error: ${res.status} ${res.statusText}`;
-    }
-
-    const data = await res.json();
-    return data.response; // API only returns response on success
-  } catch (error) {
-    console.error('Error calling AI:', error);
-    return `Error calling AI: ${error.message}`;
-  }
 };
