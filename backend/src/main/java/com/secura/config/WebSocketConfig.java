@@ -1,21 +1,36 @@
 package com.secura.config;
-import com.secura.service.ChatWebSocketHandler;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import com.secura.service.ReactiveWebSocketHandler;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.socket.config.annotation.EnableWebSocket;
-import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
-import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+import org.springframework.web.reactive.HandlerMapping;
+import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
+import org.springframework.web.reactive.socket.WebSocketHandler;
+import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
-@EnableWebSocket
-public class WebSocketConfig implements WebSocketConfigurer {
+@RequiredArgsConstructor
+public class WebSocketConfig {
 
-    @Autowired
-    private ChatWebSocketHandler chatWebSocketHandler;
+    private final ReactiveWebSocketHandler webSocketHandler;
 
-    @Override
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(chatWebSocketHandler, "/chat")
-                .setAllowedOrigins("*"); // Configure appropriately for production
+    @Bean
+    public HandlerMapping handlerMapping() {
+        Map<String, WebSocketHandler> map = new HashMap<>();
+        map.put("/chat", webSocketHandler);
+
+        SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping();
+        mapping.setUrlMap(map);
+        mapping.setOrder(-1); // Before annotated controllers
+        return mapping;
+    }
+
+    @Bean
+    public WebSocketHandlerAdapter handlerAdapter() {
+        return new WebSocketHandlerAdapter();
     }
 }

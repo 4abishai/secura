@@ -1,30 +1,28 @@
 package com.secura.entity;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-import java.time.LocalDateTime;
-
-@Entity
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "users")
+@Table("users")
 public class User {
     @Id
-    private String username;
+    private Long id;
 
+    private String username;
     private String password;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column("public_key")
     private String publicKey;
 
     private Boolean online;
 
+    @Column("last_seen")
     private Long lastSeen;
-
 }
