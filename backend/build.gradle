@@ -24,11 +24,14 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	compileOnly 'org.projectlombok:lombok'
-	implementation 'org.postgresql:postgresql'
+
+	// R2DBC for reactive database access (replaced spring-boot-starter-data-jpa)
+	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+	implementation 'org.postgresql:r2dbc-postgresql:1.0.5.RELEASE'
+
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -36,7 +39,7 @@ dependencies {
 	implementation 'org.hibernate.validator:hibernate-validator:7.0.5.Final'
 	implementation 'org.glassfish:jakarta.el:4.0.2'// Expression Language for validation
 	implementation 'org.springframework.security:spring-security-crypto'
-	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+		implementation 'org.springframework.boot:spring-boot-starter-rsocket'
 }
 
 tasks.named('test') {

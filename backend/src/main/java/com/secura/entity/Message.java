@@ -1,33 +1,27 @@
 package com.secura.entity;
 
-import jakarta.persistence.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 
-@Entity
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "messages")
+@Table("messages")
 public class Message {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String sender;
     private String recipient;
-
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
-
     private Instant timestamp;
 
-    @Column(nullable = false)
-    private boolean delivered = false; // ensures tracking delivery status
+    @Column("delivered")
+    private Boolean delivered = false;
 }

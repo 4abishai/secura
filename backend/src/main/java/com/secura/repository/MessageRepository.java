@@ -1,21 +1,22 @@
 package com.secura.repository;
 
-
 import com.secura.entity.Message;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Repository
-public interface MessageRepository extends JpaRepository<Message, Long> {
-    List<Message> findByRecipient(String recipient);
+public interface MessageRepository extends R2dbcRepository<Message, Long> {
 
-    @Query("SELECT m FROM Message m WHERE m.sender = :user OR m.recipient = :user ORDER BY m.timestamp ASC")
-    List<Message> findAllMessagesForUser(@Param("user") String user);
+    Flux<Message> findByRecipient(String recipient);
 
-    List<Message> findByRecipientAndDeliveredFalse(String recipient); // fetch undelivered
+    @Query("SELECT * FROM messages WHERE sender = :user OR recipient = :user ORDER BY timestamp ASC")
+    Flux<Message> findAllMessagesForUser(@Param("user") String user);
 
-    void deleteById(Long id); // needed for ACK deletion
+    Flux<Message> findByRecipientAndDeliveredFalse(String recipient);
+
+    Mono<Void> deleteById(Long id);
 }
