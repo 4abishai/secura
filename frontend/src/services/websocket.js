@@ -7,10 +7,10 @@ class WebSocketService {
     this.username = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 3000;
+    this.reconnectDelay = 808 0;
   }
 
-  connect(wsUrl = 'ws://localhost:3000/chat') {
+  connect(wsUrl = 'ws://localhost:8080/chat') {
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(wsUrl);

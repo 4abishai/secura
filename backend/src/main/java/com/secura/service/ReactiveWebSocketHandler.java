@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.entity.Message;
 import com.secura.repository.MessageRepository;
+import com.secura.repository.TaskRepository;
 import com.secura.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,10 +28,10 @@ public class ReactiveWebSocketHandler implements WebSocketHandler {
 
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final TaskRepository taskRepository;
     private final ObjectMapper objectMapper;
-
+    private final Map<String, Sinks.Many<String>> userMessageSinks;
     private final Map<String, WebSocketSession> userSessions = new ConcurrentHashMap<>();
-    private final Map<String, Sinks.Many<String>> userMessageSinks = new ConcurrentHashMap<>();
 
     @Override
     public Mono<Void> handle(WebSocketSession session) {
@@ -75,6 +76,8 @@ public class ReactiveWebSocketHandler implements WebSocketHandler {
                                 return handlePresenceUpdate(session, jsonMessage);
                             case "message_ack":
                                 return handleAckMessage(jsonMessage);
+                            case "get_pending_tasks":
+                                return handleGetPendingTasks(session, jsonMessage, messageSink);
                             default:
                                 return sendError(messageSink, "Unknown message type: " + type);
                         }
@@ -87,6 +90,28 @@ public class ReactiveWebSocketHandler implements WebSocketHandler {
                 .onErrorResume(error -> {
                     log.error("Error handling WebSocket message", error);
                     return sendError(messageSink, "Internal error occurred");
+                });
+    }
+
+    private Mono<Void> handleGetPendingTasks(WebSocketSession session, JsonNode jsonMessage, Sinks.Many<String> messageSink) {
+        String username = (String) session.getAttributes().get("username");
+
+        return taskRepository.findPendingTasksByAssignee(username)
+                .collectList()
+                .flatMap(tasks -> {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("type", "pending_tasks");
+                    response.put("tasks", tasks.stream().map(task -> {
+                        Map<String, Object> taskMap = new HashMap<>();
+                        taskMap.put("id", task.getId());
+                        taskMap.put("taskTitle", task.getTaskTitle());
+                        taskMap.put("deadline", task.getDeadline().toString());
+                        taskMap.put("assignedBy", task.getAssignedBy());
+                        taskMap.put("status", task.getStatus().toString());
+                        return taskMap;
+                    }).toList());
+
+                    return sendMessage(messageSink, response);
                 });
     }
 

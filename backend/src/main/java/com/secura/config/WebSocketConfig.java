@@ -8,18 +8,17 @@ import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAdapter;
+import reactor.core.publisher.Sinks;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
-@RequiredArgsConstructor
 public class WebSocketConfig {
 
-    private final ReactiveWebSocketHandler webSocketHandler;
-
     @Bean
-    public HandlerMapping handlerMapping() {
+    public HandlerMapping handlerMapping(ReactiveWebSocketHandler webSocketHandler) {
         Map<String, WebSocketHandler> map = new HashMap<>();
         map.put("/chat", webSocketHandler);
 
@@ -32,5 +31,10 @@ public class WebSocketConfig {
     @Bean
     public WebSocketHandlerAdapter handlerAdapter() {
         return new WebSocketHandlerAdapter();
+    }
+
+    @Bean
+    public Map<String, Sinks.Many<String>> userMessageSinks() {
+        return new ConcurrentHashMap<>();
     }
 }

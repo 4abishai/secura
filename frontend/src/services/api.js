@@ -1,7 +1,7 @@
 // services/api.js
 import websocketService from './websocket';
 
-const apiBase = 'http://localhost:3000/api';
+const apiBase = 'http://localhost:8080/api';
 
 export const registerUser = async (username, publicKey, password) => {
   const res = await fetch(`${apiBase}/register`, {

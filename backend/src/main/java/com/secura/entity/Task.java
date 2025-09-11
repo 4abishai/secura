@@ -7,6 +7,7 @@ import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 import lombok.*;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Table("tasks")
@@ -23,7 +24,7 @@ public class Task {
     @Column("task_title")
     private String taskTitle;
 
-    private LocalDateTime deadline;
+    private Instant deadline;
 
     private String assignee;
 
@@ -33,7 +34,7 @@ public class Task {
 
     @CreatedDate
     @Column("created_at")
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public enum Status {
         PENDING,
