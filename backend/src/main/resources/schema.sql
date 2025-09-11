@@ -18,14 +18,14 @@ CREATE TABLE IF NOT EXISTS messages (
     delivered BOOLEAN DEFAULT FALSE
 );
 
--- DROP TABLE IF EXISTS tasks;
+--DROP TABLE IF EXISTS tasks;
 
 CREATE TABLE IF NOT EXISTS tasks (
     id BIGSERIAL PRIMARY KEY,
     task_title TEXT NOT NULL,
-    deadline TIMESTAMP NULL,
+    deadline TIMESTAMPTZ NULL,
     assigned_by TEXT NOT NULL,
     assignee TEXT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

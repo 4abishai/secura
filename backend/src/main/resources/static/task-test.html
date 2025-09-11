@@ -123,6 +123,16 @@
 </div>
 
 <div class="container">
+    <h3>Task Testing</h3>
+    <div class="input-group">
+        <input type="text" id="taskTitle" placeholder="Task title" value="Complete urgent report">
+        <input type="text" id="taskAssignee" placeholder="Assignee" value="testuser1">
+    </div>
+    <button id="createTaskBtn" onclick="createTestTask()" disabled>Create Test Task (10s deadline)</button>
+    <button id="getPendingTasksBtn" onclick="getPendingTasks()" disabled>Get Pending Tasks</button>
+</div>
+
+<div class="container">
     <h3>Messages</h3>
     <div id="messages" class="messages"></div>
     <button onclick="clearMessages()">Clear Messages</button>
@@ -160,6 +170,8 @@
         document.getElementById('getMessagesBtn').disabled = !connected;
         document.getElementById('onlineBtn').disabled = !connected;
         document.getElementById('offlineBtn').disabled = !connected;
+        document.getElementById('createTaskBtn').disabled = !connected;
+        document.getElementById('getPendingTasksBtn').disabled = !connected;
     }
 
     function updateUsers() {
@@ -190,7 +202,6 @@
             updateButtons(true);
             addMessage('Connected to server', 'system');
 
-            // Register user
             send({
                 type: 'register',
                 username: username
@@ -266,6 +277,62 @@
         });
     }
 
+    function createTestTask() {
+        const taskTitle = document.getElementById('taskTitle').value;
+        const assignee = document.getElementById('taskAssignee').value;
+
+        if (!taskTitle || !assignee) {
+            alert('Please enter task title and assignee');
+            return;
+        }
+
+        // Create a deadline 10 seconds from now
+        const deadline = new Date();
+        deadline.setSeconds(deadline.getSeconds() + 10);
+        const deadlineISO = deadline.toISOString();
+
+        const messages = [
+            {
+                sender: username,
+                content: `Please ${taskTitle} by ${deadlineISO}`
+            },
+            {
+                sender: assignee,
+                content: "I'll work on it"
+            }
+        ];
+
+        fetch('http://localhost:8080/api/tasks/extract', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messages: messages
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            throw new Error('Failed to create task: ' + response.status);
+        })
+        .then(task => {
+            addMessage(`✅ Task created successfully: "${task.taskTitle}" for ${task.assignee}, deadline: ${task.deadline}`, 'system');
+            addMessage(`⏰ Task notification should arrive in ~10 seconds`, 'system');
+        })
+        .catch(error => {
+            addMessage(`❌ Error creating task: ${error.message}`, 'error');
+            console.error('Error creating task:', error);
+        });
+    }
+
+    function getPendingTasks() {
+        send({
+            type: 'get_pending_tasks'
+        });
+    }
+
     function handleMessage(message) {
         addMessage('RECEIVED: ' + JSON.stringify(message, null, 2), 'received');
 
@@ -278,7 +345,6 @@
 
             case 'new_message':
                 addMessage(`💬 Message from ${message.sender}: "${message.content}"`, 'received');
-                // Send acknowledgment
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({
                         type: 'message_ack',
@@ -317,6 +383,21 @@
                 });
                 break;
 
+            case 'deadline_notification':
+                addMessage(`🚨 DEADLINE ALERT: ${message.message}`, 'error');
+                addMessage(`📋 Task: "${message.taskTitle}" | Assignee: ${message.assignee} | Assigned by: ${message.assignedBy}`, 'error');
+                if (Notification.permission === 'granted') {
+                    new Notification('Task Deadline Alert', {
+                        body: message.message,
+                        icon: '⏰'
+                    });
+                }
+                break;
+
+            case 'custom_notification':
+                addMessage(`🔔 Notification: ${message.message}`, 'system');
+                break;
+
             default:
                 addMessage(`❓ Unknown message type: ${message.type}`, 'system');
         }
@@ -326,7 +407,6 @@
         document.getElementById('messages').innerHTML = '';
     }
 
-    // Handle page unload
     window.addEventListener('beforeunload', function() {
         if (socket) {
             send({
@@ -336,15 +416,19 @@
         }
     });
 
-    // Auto-focus message input when Enter is pressed
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('messageContent').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
+
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
     });
 </script>
+
 
 </body>
 </html>
