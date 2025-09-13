@@ -7,7 +7,7 @@ class WebSocketService {
     this.username = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 808 0;
+    this.reconnectDelay = 8080;
   }
 
   connect(wsUrl = 'ws://localhost:8080/chat') {
