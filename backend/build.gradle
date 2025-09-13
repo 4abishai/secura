@@ -31,8 +31,14 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-quartz'
 
 	// R2DBC for reactive database access (replaced spring-boot-starter-data-jpa)
-	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
-	implementation 'org.postgresql:r2dbc-postgresql:1.0.5.RELEASE'
+//	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+//	implementation 'org.postgresql:r2dbc-postgresql:1.0.5.RELEASE'
+
+	// Mongo DB Reactive
+	// For Boot 3.5.x (stable, recommended)
+	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'

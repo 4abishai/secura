@@ -1,17 +1,18 @@
 package com.secura.repository;
 
 import com.secura.entity.Task;
-import org.springframework.data.r2dbc.repository.Query;
-import org.springframework.data.r2dbc.repository.R2dbcRepository;
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
+import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 
 import java.time.Instant;
 
-public interface TaskRepository extends R2dbcRepository<Task, Long> {
+@Repository
+public interface TaskRepository extends ReactiveMongoRepository<Task, String> {
 
-    @Query("SELECT * FROM tasks WHERE deadline BETWEEN :startTime AND :endTime AND status = 'PENDING'")
-    Flux<Task> findTasksWithDeadlineBetween(Instant startTime, Instant endTime);
+    // Find tasks between two deadlines and with status PENDING
+    Flux<Task> findByDeadlineBetweenAndStatus(Instant startTime, Instant endTime, Task.Status status);
 
-    @Query("SELECT * FROM tasks WHERE assignee = :assignee AND status = 'PENDING'")
-    Flux<Task> findPendingTasksByAssignee(String assignee);
+    // Find pending tasks for a specific assignee
+    Flux<Task> findByAssigneeAndStatus(String assignee, Task.Status status);
 }

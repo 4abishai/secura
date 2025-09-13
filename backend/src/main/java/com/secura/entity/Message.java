@@ -1,27 +1,29 @@
 package com.secura.entity;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Column;
-import org.springframework.data.relational.core.mapping.Table;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+
+@Document("messages")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table("messages")
 public class Message {
     @Id
-    private Long id;
+    private String id;  // MongoDB usually uses String/ObjectId
 
     private String sender;
     private String recipient;
     private String content;
     private Instant timestamp;
 
-    @Column("delivered")
+    @Field("delivered")
     private Boolean delivered = false;
 }
