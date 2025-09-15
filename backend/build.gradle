@@ -38,6 +38,9 @@ dependencies {
 	// For Boot 3.5.x (stable, recommended)
 	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
 
+	// Redis
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
 	annotationProcessor 'org.projectlombok:lombok'
