@@ -7,7 +7,7 @@ import Registration from './components/Registration';
 import UserList from './components/UserList';
 import MessageInput from './components/MessageInput';
 import MessageList from './components/MessageList';
-import { callAI } from './services/api';
+import { callAI, websocketService } from './services/api';
 
 const SecureChatApp = () => {
   // Auth hook - handles authentication, keys, and encryption
@@ -64,6 +64,11 @@ const SecureChatApp = () => {
 
   // AI processing state
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+
+  // Sidebar state
+  const [activeTab, setActiveTab] = useState("Chats");
+  const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
   const onRegisterUser = async () => {
     try {
@@ -141,16 +146,38 @@ const onSendMessage = async () => {
     }
   };
 
+  // Ask server for pending tasks when Tasks tab is opened
+  useEffect(() => {
+    if (activeTab === "Tasks" && connectionStatus === "connected") {
+      try {
+        setLoadingTasks(true);   // show loading state until tasks arrive
+        websocketService.send({ type: "get_pending_tasks" });
+      } catch (err) {
+        console.error("Failed to request tasks:", err);
+      }
+    }
+  }, [activeTab, connectionStatus]);
+
   // Setup WebSocket handlers once on mount
   useEffect(() => {
     console.log('Setting up WebSocket handlers');
-    const cleanup = setupWebSocketHandlers(
-      (data) => handleDecryptAndAddMessage(data, handleDecryptMessage, privateKeyRef),
-      (messageList) => handleDecryptMessages(messageList, handleDecryptMessage),
-      updateUserPresence
-    );
-    
-    return cleanup;
+      const cleanup = setupWebSocketHandlers(
+          (data) => {
+              handleDecryptAndAddMessage(data, handleDecryptMessage, privateKeyRef);
+          },
+          (messageList) => handleDecryptMessages(messageList, handleDecryptMessage),
+          updateUserPresence,
+          handleDecryptMessage,
+          privateKeyRef,
+          (tasksData) => {
+              console.log("Pending tasks received:", tasksData);
+              setTasks(tasksData || []);
+              setLoadingTasks(false);
+          }
+      );
+
+
+      return cleanup;
   }, [setupWebSocketHandlers, handleDecryptAndAddMessage, handleDecryptMessages, handleDecryptMessage, privateKeyRef, updateUserPresence]);
 
   // Handle initial app setup
@@ -181,7 +208,7 @@ const onSendMessage = async () => {
 
   if (!username) {
     return (
-      <Registration 
+      <Registration
         inputUsername={inputUsername}
         inputPassword={inputPassword}
         onUsernameChange={setInputUsername}
@@ -194,11 +221,49 @@ const onSendMessage = async () => {
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: 'Arial', maxWidth: 800 }}>
+  <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial' }}>
+    {/* Sidebar */}
+    <div style={{
+      width: '200px',
+      backgroundColor: '#f5f5f5',
+      borderRight: '1px solid #ddd',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '10px'
+    }}>
+    <h3 style={{ marginBottom: '20px' }}>Menu</h3>
+    <button
+      onClick={() => setActiveTab("Chats")}
+      style={{
+        padding: '10px',
+        marginBottom: '10px',
+        backgroundColor: activeTab === "Chats" ? '#d1e7dd' : '#fff',
+        border: '1px solid #ccc',
+        cursor: 'pointer',
+        textAlign: 'left'
+      }}
+    >
+      💬 Chats
+    </button>
+    <button
+      onClick={() => setActiveTab("Tasks")}
+      style={{
+        padding: '10px',
+        backgroundColor: activeTab === "Tasks" ? '#d1e7dd' : '#fff',
+        border: '1px solid #ccc',
+        cursor: 'pointer',
+        textAlign: 'left'
+      }}
+    >
+      ✅ Tasks
+    </button>
+    </div>
+
+    <div style={{ flex: 1, padding: 20 }}>
       {keyChangeNotifications.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           {keyChangeNotifications.map(notification => (
-            <div 
+            <div
               key={notification.id}
               style={{
                 backgroundColor: '#fff3cd',
@@ -217,7 +282,7 @@ const onSendMessage = async () => {
                   {notification.message}
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => dismissKeyNotification(notification.id)}
                 style={{
                   background: 'none',
@@ -238,8 +303,8 @@ const onSendMessage = async () => {
         <h2>Welcome, {username}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isProcessingAI && (
-            <span style={{ 
-              color: 'orange', 
+            <span style={{
+              color: 'orange',
               fontSize: '12px',
               display: 'flex',
               alignItems: 'center',
@@ -248,9 +313,9 @@ const onSendMessage = async () => {
               🤖 Processing AI...
             </span>
           )}
-          <span 
-            style={{ 
-              color: connectionStatus === 'connected' ? 'green' : 
+          <span
+            style={{
+              color: connectionStatus === 'connected' ? 'green' :
                      connectionStatus === 'connecting' ? 'orange' : 'red',
               fontSize: '12px'
             }}
@@ -279,16 +344,16 @@ const onSendMessage = async () => {
         💡 <strong>Tip:</strong> Type <code>@AI your question</code> in any chat to get AI assistance that both users can see
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
+      {activeTab === "Chats" && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
         <div>
-          <UserList 
+          <UserList
             users={users}
             selectedUser={selectedUser}
             onUserSelect={setSelectedUser}
             onRefresh={onFetchUsers}
           />
-
-          <MessageInput 
+          <MessageInput
             selectedUser={selectedUser}
             message={message}
             onMessageChange={setMessage}
@@ -296,15 +361,60 @@ const onSendMessage = async () => {
             disabled={connectionStatus !== 'connected' || !privateKey || isProcessingAI}
           />
         </div>
-
-        <MessageList 
+        <MessageList
           messages={messages}
           currentUsername={username}
           selectedUser={selectedUser}
         />
-      </div>
+        </div>
+      )}
+
+        {activeTab === "Tasks" && (
+          <div>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    ✅ Your Tasks
+            </h3>
+            {loadingTasks ? (
+              <p>Loading tasks...</p>
+            ) : tasks.length === 0 ? (
+                    <p>No pending tasks</p>
+            ) : (
+              <ul style={{ listStyleType: 'none', padding: 0 }}>
+                {tasks.map((task, idx) => (
+                  <li
+                    key={idx}
+                    style={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      padding: '16px',
+                      marginBottom: '10px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                      transition: 'transform 0.2s ease-in-out',
+                      fontFamily: 'Arial, sans-serif'
+                    }}
+                  >
+                    <strong style={{ display: 'block', fontSize: '18px', marginBottom: '8px', color: '#333' }}>
+                        {task.taskTitle}
+                    </strong>
+                    <hr style={{ borderTop: '1px solid #eee', margin: '10px 0' }} />
+                    <div style={{ fontSize: '14px', color: '#666' }}>
+                      <span style={{ display: 'block', marginBottom: '4px' }}>
+                        Assigned by: <span style={{ fontWeight: 'bold' }}>{task.assignedBy}</span>
+                      </span>
+                      <span style={{ display: 'block' }}>
+                          Due: <span style={{ fontWeight: 'bold' }}>{new Date(task.deadline).toLocaleString()}</span>
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
     </div>
-  );
+</div>
+);
 };
 
 export default SecureChatApp;

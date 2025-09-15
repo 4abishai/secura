@@ -1,6 +1,8 @@
 // services/api.js
 import websocketService from './websocket';
 
+export { websocketService };
+
 const apiBase = 'http://localhost:8080/api';
 
 export const registerUser = async (username, publicKey, password) => {
@@ -133,5 +135,13 @@ export const callAI = async (query) => {
   } catch (error) {
     console.error('Error calling AI:', error);
     return `Error calling AI: ${error.message}`;
+  }
+};
+
+export const sendWebSocketMessage = (payload) => {
+  if (websocketService.isConnected()) {
+      websocketService.send(payload);
+    } else {
+      console.warn("WebSocket not connected, cannot send:", payload);
   }
 };

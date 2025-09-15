@@ -6,7 +6,8 @@ import {
   disconnectWebSocket, 
   updatePresence, 
   isWebSocketConnected,
-  sendMessageAck
+  sendMessageAck,
+  sendWebSocketMessage
 } from '../services/api';
 import { messageStore } from '../services/messageStore';
 
@@ -43,7 +44,8 @@ const setupWebSocketHandlers = useCallback((
   handleDecryptMessages, 
   updateUserPresence,
   handleDecryptMessage,
-  privateKeyRef
+  privateKeyRef,
+  handleTasksUpdate
 ) => {
 
 
@@ -101,6 +103,14 @@ const unsubscribeMessageSent = onWebSocketMessage('message_sent', async (data) =
       alert(`WebSocket error: ${data.message}`);
     });
 
+    // Handle pending tasks
+    const unsubscribePendingTasks = onWebSocketMessage('pending_tasks', (data) => {
+      console.log('Received pending tasks:', data);
+        if (handleTasksUpdate) {
+          handleTasksUpdate(data.tasks); // notify parent
+        }
+    });
+
     // Return cleanup function
     return () => {
       unsubscribeNewMessage();
@@ -108,6 +118,7 @@ const unsubscribeMessageSent = onWebSocketMessage('message_sent', async (data) =
       unsubscribeMessageSent();
       unsubscribeUserPresence();
       unsubscribeRegistration();
+      unsubscribePendingTasks();
       unsubscribeError();
     };
   }, []);
@@ -149,6 +160,8 @@ const unsubscribeMessageSent = onWebSocketMessage('message_sent', async (data) =
     
     // Connection controls
     disconnect,
-    isConnected
+    isConnected,
+
+    send: sendWebSocketMessage
   };
 };
