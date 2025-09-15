@@ -5,20 +5,28 @@ import { summarizeMessages } from "../services/api";
 const extractTasks = async (messages) => {
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+    const payload = {
+        messages: messages.map(m => ({
+            sender: m.sender,
+            recipient: m.recipient,
+            content: m.decrypted,
+        })),
+        timezone: [userTimezone],
+    };
+
+    // Log before sending
+    console.log("Calling /api/tasks/extract with payload:", payload);
+
     const res = await fetch("http://localhost:8080/api/tasks/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            messages: messages.map(m => ({
-                sender: m.sender,
-                content: m.decrypted,
-            })),
-            timezone: [userTimezone],
-        }),
+        body: JSON.stringify(payload),
     });
+
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
 };
+
 
 const MessageList = ({ messages, currentUsername, selectedUser }) => {
     const [summary, setSummary] = useState(null);

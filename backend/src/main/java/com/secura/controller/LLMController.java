@@ -68,10 +68,21 @@ public class LLMController {
 
         // Combine the conversation
         StringBuilder conversation = new StringBuilder();
+//        for (Map<String, String> msg : textList) {
+//            String sender = msg.getOrDefault("sender", "Unknown");
+//            String content = msg.getOrDefault("content", "");
+//            conversation.append(sender).append(": ").append(content).append("\n");
+//        }
         for (Map<String, String> msg : textList) {
             String sender = msg.getOrDefault("sender", "Unknown");
+            String recipient = msg.getOrDefault("recipient", "Unknown");
             String content = msg.getOrDefault("content", "");
-            conversation.append(sender).append(": ").append(content).append("\n");
+            conversation.append(sender)
+                    .append(" -> ")
+                    .append(recipient)
+                    .append(": ")
+                    .append(content)
+                    .append("\n");
         }
 
         // Enhanced prompt with timezone context
