@@ -2,6 +2,7 @@ package com.secura.controller;
 
 import com.secura.entity.User;
 import com.secura.repository.UserRepository;
+import com.secura.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -12,7 +13,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
-
 @Slf4j
 @RestController
 @RequestMapping("/api")
@@ -21,6 +21,7 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final UserService userService;
 
     @PostMapping("/register")
     public Mono<ResponseEntity<?>> registerUser(@RequestBody User user) {
@@ -84,11 +85,7 @@ public class UserController {
                     user.setOnline(true);
                     user.setLastSeen(System.currentTimeMillis());
 
-                    if (publicKey != null && !publicKey.isEmpty()) {
-                        user.setPublicKey(publicKey);
-                    }
-
-                    return userRepository.save(user)
+                    return userService.saveUser(user, publicKey)
                             .map(savedUser -> {
                                 String message = forceLogin ? "Forced login successful" : "Login successful";
                                 return ResponseEntity.ok(Map.of(
@@ -109,10 +106,10 @@ public class UserController {
 
     @GetMapping("/users/{username}")
     public Mono<ResponseEntity<Map<String, String>>> getUserPublicInfo(@PathVariable String username) {
-        return userRepository.findByUsername(username)
-                .map(user -> ResponseEntity.ok(Map.of(
-                        "username", user.getUsername(),
-                        "publicKey", user.getPublicKey()
+        return userService.getPublicKey(username)
+                .map(publicKey -> ResponseEntity.ok(Map.of(
+                        "username", username,
+                        "publicKey", publicKey
                 )))
                 .switchIfEmpty(Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "User not found"))));

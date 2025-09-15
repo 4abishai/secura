@@ -26,7 +26,7 @@ public class TaskDeadlineJob implements Job {
             return;
         }
 
-        Long taskId = dataMap.getLong("taskId");
+        String taskId = dataMap.getString("taskId");
 
         taskRepository.findById(taskId)
                 .doOnNext(task -> {

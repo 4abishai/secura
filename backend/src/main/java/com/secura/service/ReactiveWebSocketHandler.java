@@ -3,6 +3,7 @@ package com.secura.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.entity.Message;
+import com.secura.entity.Task;
 import com.secura.repository.MessageRepository;
 import com.secura.repository.TaskRepository;
 import com.secura.repository.UserRepository;
@@ -96,7 +97,7 @@ public class ReactiveWebSocketHandler implements WebSocketHandler {
     private Mono<Void> handleGetPendingTasks(WebSocketSession session, JsonNode jsonMessage, Sinks.Many<String> messageSink) {
         String username = (String) session.getAttributes().get("username");
 
-        return taskRepository.findPendingTasksByAssignee(username)
+        return taskRepository.findByAssigneeAndStatus(username, Task.Status.PENDING)
                 .collectList()
                 .flatMap(tasks -> {
                     Map<String, Object> response = new HashMap<>();
@@ -203,7 +204,7 @@ public class ReactiveWebSocketHandler implements WebSocketHandler {
     }
 
     private Mono<Void> handleAckMessage(JsonNode jsonMessage) {
-        Long messageId = jsonMessage.get("messageId").asLong();
+        String messageId = jsonMessage.get("messageId").asText();
         return messageRepository.deleteById(messageId)
                 .doOnSuccess(unused -> log.info("Deleted message with ID {} after ACK", messageId));
     }
