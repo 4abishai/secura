@@ -6,7 +6,8 @@ import {
   disconnectWebSocket, 
   updatePresence, 
   isWebSocketConnected,
-  sendMessageAck
+  sendMessageAck,
+  sendWebSocketMessage
 } from '../services/api';
 import { messageStore } from '../services/messageStore';
 
@@ -43,7 +44,10 @@ const setupWebSocketHandlers = useCallback((
   handleDecryptMessages, 
   updateUserPresence,
   handleDecryptMessage,
-  privateKeyRef
+  privateKeyRef,
+  handleTasksUpdate,
+  handleCustomNotification,
+  handleDeadlineNotification
 ) => {
 
 
@@ -95,10 +99,34 @@ const unsubscribeMessageSent = onWebSocketMessage('message_sent', async (data) =
       setConnectionStatus('connected');
     });
 
+    // Handle pending tasks
+    const unsubscribePendingTasks = onWebSocketMessage('pending_tasks', (data) => {
+      console.log('Received pending tasks:', data);
+        if (handleTasksUpdate) {
+          handleTasksUpdate(data.tasks); // notify parent
+        }
+    });
+
+    // Handle custom notification
+    const unsubscribeCustomNotification = onWebSocketMessage('custom_notification', (data) => {
+      console.log('Received custom notification:', data);
+      if (handleCustomNotification) {
+        handleCustomNotification(data); // notify parent
+      }
+    });
+
+    // Handle deadline notification
+    const unsubscribeDeadlineNotification = onWebSocketMessage('deadline_notification', (data) => {
+      console.log('Received deadline notification:', data);
+      if (handleDeadlineNotification) {
+        handleDeadlineNotification(data); // notify parent
+      }
+    });
+
     // Handle errors
     const unsubscribeError = onWebSocketMessage('error', (data) => {
-      console.error('WebSocket error:', data.message);
-      alert(`WebSocket error: ${data.message}`);
+        console.error('WebSocket error:', data.message);
+        alert(`WebSocket error: ${data.message}`);
     });
 
     // Return cleanup function
@@ -108,6 +136,9 @@ const unsubscribeMessageSent = onWebSocketMessage('message_sent', async (data) =
       unsubscribeMessageSent();
       unsubscribeUserPresence();
       unsubscribeRegistration();
+      unsubscribePendingTasks();
+      unsubscribeCustomNotification();
+      unsubscribeDeadlineNotification();
       unsubscribeError();
     };
   }, []);
@@ -149,6 +180,8 @@ const unsubscribeMessageSent = onWebSocketMessage('message_sent', async (data) =
     
     // Connection controls
     disconnect,
-    isConnected
+    isConnected,
+
+    send: sendWebSocketMessage
   };
 };
