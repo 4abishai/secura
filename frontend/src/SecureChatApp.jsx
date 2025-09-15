@@ -146,6 +146,15 @@ const onSendMessage = async () => {
     }
   };
 
+  // Request notification permission on app start
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().then(permission => {
+        console.log("Notification permission:", permission);
+      });
+    }
+  }, []);
+
   // Ask server for pending tasks when Tasks tab is opened
   useEffect(() => {
     if (activeTab === "Tasks" && connectionStatus === "connected") {
@@ -173,7 +182,9 @@ const onSendMessage = async () => {
               console.log("Pending tasks received:", tasksData);
               setTasks(tasksData || []);
               setLoadingTasks(false);
-          }
+          },
+          (notification) => showNotification('custom', notification),
+          (deadlineInfo) => showNotification('deadline', deadlineInfo)
       );
 
 
@@ -219,6 +230,34 @@ const onSendMessage = async () => {
       />
     );
   }
+
+    // Helper to show styled messages and notifications
+    const showNotification = (type, message) => {
+      switch (type) {
+        case 'deadline':
+          console.log("🚨 DEADLINE ALERT:", message.message);
+          if (Notification.permission === 'granted') {
+            new Notification('Task Deadline Alert', {
+              body: `${message.taskTitle} — ${message.message}`,
+              icon: '⏰'
+            });
+          }
+          break;
+
+        case 'custom':
+          console.log("🔔 CUSTOM NOTIFICATION:", message.message);
+          if (Notification.permission === 'granted') {
+            new Notification('Notification', {
+              body: message.message,
+              icon: '🔔'
+            });
+          }
+          break;
+
+        default:
+          console.log("ℹ️ INFO:", message);
+      }
+    };
 
   return (
   <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial' }}>
