@@ -1,0 +1,286 @@
+:root {
+  /* WhatsApp Light palette (kept) */
+  --bg: #ECE5DD;
+  --panel: #FFFFFF;
+  --text: #212121;
+  --muted: #667781;
+  --brand: #128C7E;
+  --accent: #25D366;
+  --success: #25D366;
+  --warn: #FFD166;
+  --danger: #FF6B6B;
+  --border: #DADADA;
+  --border-soft: #EEE;
+
+  /* Visual design tokens */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 18px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.06);
+  --shadow-2: 0 8px 24px rgba(0,0,0,.08);
+
+  /* Type scale */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --fs-xxs: 11px;  /* timestamps, meta micro */
+  --fs-xs : 12px;  /* pills, small labels */
+  --fs-sm : 13px;  /* secondary text */
+  --fs-md : 14px;  /* body, message text */
+  --fs-lg : 15px;  /* list titles */
+  --fs-xl : 16px;  /* header title */
+  --lh     : 1.35;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+}
+
+/* Smooth, subtle scrollbars (professional feel) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cfcfcf transparent;
+}
+*::-webkit-scrollbar { height: 8px; width: 8px; }
+*::-webkit-scrollbar-thumb { background: #cfcfcf; border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: #bdbdbd; }
+
+/* Focus visibility */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 70%, white);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ───────────────── Sidebar (thin rail) ───────────────── */
+.sidebar {
+  width: 72px;
+  background: #075E54;
+  border-right: 1px solid #064b44;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #fff;
+}
+.sidebar__title { display: none; }
+.tab {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.0));
+  color: #fff;
+  padding: 10px 0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform .06s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+}
+.tab:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.38); }
+.tab--active {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.55);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 12px rgba(0,0,0,.08);
+}
+
+/* ───────────────── Main column ───────────────── */
+.main {
+  flex: 1;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow: hidden;
+}
+
+/* Header: compact, crisp */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #075E54;
+  color: #FFF;
+  padding: 10px 14px;
+  border: 1px solid #064b44;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+.header h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: .1px;
+}
+.header__meta { display: flex; align-items: center; gap: 8px; }
+
+/* Pills & Buttons refined */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--fs-xs);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+}
+.pill--ok{ color: var(--success); border-color: #b7f2cf; }
+.pill--warn{ color:#b68a00; border-color:#f2da9b; background:#fffaf0; }
+.pill--error{ color: var(--danger); border-color:#ffc1c1; background:#fff5f5; }
+
+.btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--brand);
+  padding: 6px 12px;
+  font-size: var(--fs-md);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .06s ease, box-shadow .15s ease;
+}
+.btn:hover { background: #f7f7f7; border-color: var(--border-soft); box-shadow: var(--shadow-1); }
+.btn:active { transform: translateY(1px); }
+
+/* Helpful tip card */
+.tip {
+  background: #E7F7EF;
+  border: 1px solid #C7EEDB;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: var(--fs-sm);
+  color: #0b5b4f;
+}
+
+/* ───────────────── Content grid (professional proportions) ───────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: var(--space-4);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Panels (cards) */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.panel__section {
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-soft);
+}
+.panel__section:first-child { border-top: none; }
+
+/* Left: list scrolls, composer sticks */
+.panel > .panel__section:first-child { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.panel > .panel__section:last-child  { flex: 0 0 auto; }
+
+/* Right: conversation scrolls */
+.grid > .panel:last-child .panel__section { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+/* ───────────────── Polished list & input defaults (no component changes) ───────────────── */
+.panel__section input[type="text"],
+.panel__section input[type="password"],
+.panel__section input[type="search"],
+.panel__section textarea {
+  width: 100%;
+  background: #fafafa;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: var(--fs-md);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.panel__section input::placeholder,
+.panel__section textarea::placeholder { color: #9aa7ab; }
+.panel__section input:focus,
+.panel__section textarea:focus {
+  background: #fff;
+  border-color: color-mix(in srgb, var(--brand) 60%, #cfe8e2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+.panel__section button {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--brand);
+  padding: 8px 12px;
+  font-size: var(--fs-md);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .06s ease, box-shadow .15s ease;
+}
+.panel__section button:hover { background: #f7f7f7; border-color: var(--border-soft); box-shadow: var(--shadow-1); }
+.panel__section button:active { transform: translateY(1px); }
+
+/* List items inside UserList (generic, non-breaking) */
+.panel__section ul { list-style: none; margin: 0; padding: 0; }
+.panel__section li {
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px;
+  transition: background .12s ease, border-color .12s ease, transform .06s ease;
+}
+.panel__section li + li { margin-top: 8px; }
+.panel__section li:hover { background: #f9f9f9; border-color: var(--border); }
+
+/* ───────────────── Message visuals (non-invasive, only if your markup uses these) ───────────────── */
+.message-bubble {
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+  max-width: 70%;
+  border-radius: 12px;
+  padding: 8px 10px;
+  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-soft);
+}
+.message-bubble.received { background: #fff; }
+.message-bubble.sent { background: #DCF8C6; border-color: #c6ebac; }
+
+.message-time {
+  font-size: var(--fs-xxs);
+  color: var(--muted);
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* Date separators & system chips (looks polished even if you already have them) */
+.chat-separator {
+  display: inline-block;
+  background: #f4f4f4;
+  border: 1px solid var(--border);
+  color: #6b7a80;
+  font-size: var(--fs-xs);
+  padding: 4px 8px;
+  border-radius: 999px;
+  margin: 8px auto;
+}
+
+/* ───────────────── A*
