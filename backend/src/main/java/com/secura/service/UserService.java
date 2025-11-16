@@ -3,7 +3,6 @@ package com.secura.service;
 import com.secura.entity.User;
 import com.secura.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;

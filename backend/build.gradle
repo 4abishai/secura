@@ -24,35 +24,47 @@ repositories {
 }
 
 dependencies {
-	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	compileOnly 'org.projectlombok:lombok'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    compileOnly 'org.projectlombok:lombok'
 
-	implementation 'org.springframework.boot:spring-boot-starter-quartz'
+    implementation 'org.springframework.boot:spring-boot-starter-quartz'
 
-	// R2DBC for reactive database access (replaced spring-boot-starter-data-jpa)
-//	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
-//	implementation 'org.postgresql:r2dbc-postgresql:1.0.5.RELEASE'
+    // Mongo DB Reactive
+    // For Boot 3.5.x (stable, recommended)
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
 
-	// Mongo DB Reactive
-	// For Boot 3.5.x (stable, recommended)
-	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+    // Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 
-	// Redis
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-rsocket'
 
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    annotationProcessor 'org.projectlombok:lombok'
 
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
-	implementation 'org.hibernate.validator:hibernate-validator:7.0.5.Final'
-	implementation 'org.glassfish:jakarta.el:4.0.2'// Expression Language for validation
-	implementation 'org.springframework.security:spring-security-crypto'
-		implementation 'org.springframework.boot:spring-boot-starter-rsocket'
+    // Validation dependencies
+    implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
+    implementation 'org.hibernate.validator:hibernate-validator:7.0.5.Final'
+    implementation 'org.glassfish:jakarta.el:4.0.2' // Expression Language for validation
+    implementation 'org.springframework.security:spring-security-crypto'
+
+    // Test dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation 'me.paulschwarz:spring-dotenv:3.0.0'
 }
 
+test {
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        showStandardStreams = true
+    }
+}
+
+
+
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }
